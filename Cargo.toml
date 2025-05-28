@@ -1,0 +1,10 @@
+[workspace]
+members = [ "libmpv-client-sys", "libmpv-client" ]
+resolver = "3"
+
+[workspace.package]
+readme = "README.md"
+authors = [ "Astroftl <astrl@ftl.sh>" ]
+edition = "2024"
+license = "MIT"
+keywords = [ "mpv", "libmpv" ]

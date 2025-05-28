@@ -1,0 +1,15 @@
+[package]
+name = "libmpv-client-sys"
+version = "0.1.0"
+readme.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+keywords.workspace = true
+build = "build.rs"
+
+[dependencies]
+paste = "1.0"
+
+[build-dependencies]
+bindgen = "0.71"
