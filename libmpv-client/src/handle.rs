@@ -152,12 +152,12 @@ impl Handle {
     ///
     /// Safe to be called from mpv render API threads.
     pub fn get_time_ns(&self) -> i64 {
-        unsafe { mpv::mpv_get_time_ns(self.handle) }
+        unsafe { mpv::get_time_ns(self.handle) }
     }
 
     /// Same as `get_time_ns` but in microseconds.
     pub fn get_time_us(&self) -> i64 {
-        unsafe { mpv::mpv_get_time_us(self.handle) }
+        unsafe { mpv::get_time_us(self.handle) }
     }
 
     /// Set an option. Note that you can't normally set options during runtime. It works in uninitialized state (see `create()`), and in some cases in at runtime.
