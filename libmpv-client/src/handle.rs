@@ -1,12 +1,13 @@
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
-use std::os::raw::c_void;
-use std::ptr::null;
+use std::os::raw::{c_char, c_int, c_void};
+use std::ptr::{addr_of, addr_of_mut, null, null_mut};
 use std::str::FromStr;
 use crate::event::Event;
 use crate::error::{error_to_result, Error, Result};
 
 use libmpv_client_sys as mpv;
+use libmpv_client_sys::{mpv_byte_array, mpv_free, mpv_free_node_contents, mpv_node, mpv_node_list};
 use mpv::mpv_handle;
 pub use mpv::mpv_event_id;
 use crate::format::{Format, FormatType};
@@ -312,24 +313,76 @@ impl Handle {
         error_to_result(err)
     }
 
+    /// Read the value of the given property.
+    ///
+    /// If the format doesn't match with the internal format of the property, access usually will fail with `Error::PropertyFormat`.
+    ///
+    /// In some cases, the data is automatically converted and access succeeds. For example, `Format::Int64` is always converted to `Format::Double`, and access using `Format::String` usually invokes a string formatter.
     pub fn get_property(&self, name: impl ToString, format: FormatType) -> Result<Format> {
-        todo!()
-        // let owned_name = CString::new(name.to_string().as_bytes()).expect("name cannot contain NULL");
-        //
-        // let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, return_mpv_format.as_mut_ptr()) };
-        // let ret = error_to_result(err).map(|_| {
-        //     unsafe { Format::from_mpv(format, return_mpv_format.as_ptr()) }
-        // });
-        //
-        // if ret.is_ok() {
-        //     if format == Format::STRING || Format::OSD_STRING {
-        //
-        //     } else if format == Format::NODE {
-        //         unsafe { mpv::free_node_contents(return_mpv_format.as_mut_ptr()) }
-        //     }
-        // }
-        //
-        // ret
+        let owned_name = CString::new(name.to_string().as_bytes()).expect("name cannot contain NULL");
+
+        match format {
+            Format::NONE => {
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, null_mut()) };
+                error_to_result(err).map(|_| Format::None)
+            }
+
+            Format::STRING | Format::OSD_STRING => {
+                let mut result_ptr: *mut c_char = null_mut();
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
+                error_to_result(err).map(|_| {
+                    let ret = Format::from_mpv(format, addr_of!(result_ptr) as *const c_void);
+                    unsafe { mpv_free(result_ptr as *mut c_void) }
+                    ret
+                })
+            }
+
+            Format::FLAG => {
+                let mut result_ptr: c_int = 0;
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
+                error_to_result(err).map(|_| Format::from_mpv(format, addr_of!(result_ptr) as *const c_void))
+            }
+
+            Format::INT64 => {
+                let mut result_ptr: i64 = 0;
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
+                error_to_result(err).map(|_| Format::from_mpv(format, addr_of!(result_ptr) as *const c_void))
+            }
+
+            Format::DOUBLE => {
+                let mut result_ptr: f64 = 0.0;
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
+                error_to_result(err).map(|_| Format::from_mpv(format, addr_of!(result_ptr) as *const c_void))
+            }
+
+            Format::NODE => {
+                let mut result_ptr: mpv_node = unsafe { std::mem::zeroed() };
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
+                error_to_result(err).map(|_| {
+                    let ret = Format::from_mpv(format, addr_of!(result_ptr) as *const c_void);
+                    unsafe { mpv_free_node_contents(&mut result_ptr) }
+                    ret
+                })
+            }
+
+            Format::NODE_ARRAY | Format::NODE_MAP => {
+                let mut result_ptr: mpv_node_list = unsafe { std::mem::zeroed() };
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
+                error_to_result(err).map(|_| {
+                    Format::from_mpv(format, addr_of!(result_ptr) as *const c_void)
+                })
+            }
+
+            Format::BYTE_ARRAY => {
+                let mut result_ptr: mpv_byte_array = unsafe { std::mem::zeroed() };
+                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
+                error_to_result(err).map(|_| {
+                    Format::from_mpv(format, addr_of!(result_ptr) as *const c_void)
+                })
+            }
+
+            _ => unimplemented!()
+        }
     }
 
     /// Return the value of the property with the given name as string. This is equivalent to `get_property()` with `Format::String`.
