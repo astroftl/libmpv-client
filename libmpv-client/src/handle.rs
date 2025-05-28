@@ -92,8 +92,10 @@ impl Handle {
     /// # Crate Note
     /// This function is guarded such that the `Handle` may only be destroyed once. `destroy()` is called automatically when the `Handle` is `Drop`'d.
     pub fn destroy(&mut self) {
-        unsafe { mpv::destroy(self.handle) }
-        self.destroyed = true;
+        if !self.destroyed {
+            unsafe { mpv::destroy(self.handle) };
+            self.destroyed = true;
+        }
     }
 
     /// Similar to `destroy()`, but brings the player and all clients down as well, and waits until all of them are destroyed. This function blocks.
@@ -105,8 +107,10 @@ impl Handle {
     /// # Crate Note
     /// This function is guarded such that the `Handle` may only be destroyed once.
     pub fn terminate_destroy(&mut self) {
-        unsafe { mpv::terminate_destroy(self.handle) }
-        self.destroyed = true;
+        if !self.destroyed {
+            unsafe { mpv::terminate_destroy(self.handle) }
+            self.destroyed = true;
+        }
     }
 
     /// Create a new client `Handle` connected to the same player core as `Self`. This context has its own event queue, its own `request_event()` state, its own `request_log_messages()` state, its own set of observed properties, and its own state for asynchronous operations. Otherwise, everything is shared.
@@ -224,15 +228,11 @@ impl Handle {
         let mut return_mpv_node = MaybeUninit::uninit();
 
         let err = unsafe { mpv::command_node(self.handle, command.to_mpv().mut_ptr(), return_mpv_node.as_mut_ptr()) };
-        let ret = error_to_result(err).map(|_| {
-            unsafe { Node::from_ptr(return_mpv_node.as_ptr()) }
-        });
-
-        if ret.is_ok() {
+        error_to_result(err).map(|_| {
+            let ret = unsafe { Node::from_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
-        }
-
-        ret
+            ret
+        })
     }
 
     /// This is essentially identical to `command()` but it also returns a result.
@@ -252,15 +252,11 @@ impl Handle {
         let mut return_mpv_node = MaybeUninit::uninit();
 
         let err = unsafe { mpv::command_ret(self.handle, cstrs.as_mut_ptr(), return_mpv_node.as_mut_ptr()) };
-        let ret = error_to_result(err).map(|_| {
-            unsafe { Node::from_ptr(return_mpv_node.as_ptr()) }
-        });
-
-        if ret.is_ok() {
+        error_to_result(err).map(|_| {
+            let ret = unsafe { Node::from_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
-        }
-
-        ret
+            ret
+        })
     }
 
     /// Same as `command()`, but use input.conf parsing for splitting arguments.
@@ -471,6 +467,8 @@ impl Handle {
 
 impl Drop for Handle {
     fn drop(&mut self) {
-        unsafe { mpv::destroy(self.handle) };
+        if !self.destroyed {
+            unsafe { mpv::destroy(self.handle) };
+        }
     }
 }
