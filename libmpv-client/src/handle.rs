@@ -1,17 +1,13 @@
-use std::ffi::{CStr, CString};
+use std::ffi::{c_void, CStr, CString};
 use std::mem::MaybeUninit;
-use std::os::raw::{c_char, c_int, c_void};
-use std::ptr::{addr_of, addr_of_mut, null, null_mut};
+use std::ptr::null;
 use std::str::FromStr;
-use crate::event::Event;
-use crate::error::{error_to_result, Error, Result};
 
 use libmpv_client_sys as mpv;
-use libmpv_client_sys::{mpv_byte_array, mpv_free, mpv_free_node_contents, mpv_node, mpv_node_list};
-use mpv::mpv_handle;
-pub use mpv::mpv_event_id;
-use crate::format::{Format, FormatType};
-use crate::node::Node;
+use libmpv_client_sys::{mpv_event_id, mpv_node};
+use crate::*;
+use crate::error::error_to_result;
+use crate::traits::MpvSend;
 
 pub struct Handle {
     handle: *mut mpv_handle,
@@ -172,11 +168,13 @@ impl Handle {
     /// # Return
     /// A `Result<i32> where the Ok value is the success code returned from mpv.
     #[deprecated = "For most purposes, this is not needed anymore. Starting with mpv version 0.21.0 (version 1.23) most options can be set with mpv_set_property() (and related functions), and even before mpv_initialize(). In some obscure corner cases, using this function to set options might still be required (see \"Inconsistencies between options and properties\" in the manpage). Once these are resolved, the option setting functions might be fully deprecated."]
-    pub fn set_option(&self, name: impl ToString, data: Format) -> Result<i32> {
+    pub fn set_option<T: MpvSend>(&self, name: impl ToString, data: T) -> Result<i32> {
         let name_str = CString::new(name.to_string().as_bytes()).expect("set_option() name can't contain NULL");
 
-        let err = unsafe { mpv::set_option(self.handle, name_str.as_ptr(), data.to_id(), data.to_mpv().mut_ptr()) };
-        error_to_result(err)
+        data.to_mpv(|x| {
+            let err = unsafe { mpv::set_option(self.handle, name_str.as_ptr(), T::MPV_FORMAT, x) };
+            error_to_result(err)
+        })
     }
 
     /// Convenience function to set an option to a string value. This is like calling `set_option()` with `Format::String`.
@@ -227,10 +225,12 @@ impl Handle {
     /// If the function succeeds, Ok(Node) is command-specific return data. Not many commands actually use this at all.
     pub fn command_node(&self, command: Node) -> Result<Node> {
         let mut return_mpv_node = MaybeUninit::uninit();
-
-        let err = unsafe { mpv::command_node(self.handle, command.to_mpv().mut_ptr(), return_mpv_node.as_mut_ptr()) };
-        error_to_result(err).map(|_| {
-            let ret = unsafe { Node::from_ptr(return_mpv_node.as_ptr()) };
+        
+        command.to_mpv(|x| {
+            let err = unsafe { mpv::command_node(self.handle, x as *mut mpv_node, return_mpv_node.as_ptr() as *mut mpv_node) };
+            error_to_result(err)
+        }).map(|_| {
+            let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
         })
@@ -254,7 +254,7 @@ impl Handle {
 
         let err = unsafe { mpv::command_ret(self.handle, cstrs.as_mut_ptr(), return_mpv_node.as_mut_ptr()) };
         error_to_result(err).map(|_| {
-            let ret = unsafe { Node::from_ptr(return_mpv_node.as_ptr()) };
+            let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
         })
@@ -285,11 +285,13 @@ impl Handle {
     /// The same happens when calling this function with `Format::Node`: the underlying format may be converted to another type if possible.
     ///
     /// Using a format other than `Format::Node` is equivalent to constructing a `Node` with the given format and data and passing it to this function.
-    pub fn set_property(&self, name: impl ToString, value: Format) -> Result<i32> {
+    pub fn set_property<T: MpvSend>(&self, name: impl ToString, value: T) -> Result<i32> {
         let owned_name = CString::new(name.to_string().as_bytes()).expect("name cannot contain NULL");
 
-        let err = unsafe { mpv::set_property(self.handle, owned_name.as_ptr(), value.to_id(), value.to_mpv().mut_ptr()) };
-        error_to_result(err)
+        value.to_mpv(|x| {
+            let err = unsafe { mpv::set_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT, x) };
+            error_to_result(err)
+        })
     }
 
     /// Convenience function to set a property to a string value.
@@ -318,70 +320,14 @@ impl Handle {
     /// If the format doesn't match with the internal format of the property, access usually will fail with `Error::PropertyFormat`.
     ///
     /// In some cases, the data is automatically converted and access succeeds. For example, `Format::Int64` is always converted to `Format::Double`, and access using `Format::String` usually invokes a string formatter.
-    pub fn get_property(&self, name: impl ToString, format: FormatType) -> Result<Format> {
+    pub fn get_property<T: MpvSend>(&self, name: impl ToString) -> Result<T> {
         let owned_name = CString::new(name.to_string().as_bytes()).expect("name cannot contain NULL");
 
-        match format {
-            Format::NONE => {
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, null_mut()) };
-                error_to_result(err).map(|_| Format::None)
-            }
-
-            Format::STRING | Format::OSD_STRING => {
-                let mut result_ptr: *mut c_char = null_mut();
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
-                error_to_result(err).map(|_| {
-                    let ret = Format::from_mpv(format, addr_of!(result_ptr) as *const c_void);
-                    unsafe { mpv_free(result_ptr as *mut c_void) }
-                    ret
-                })
-            }
-
-            Format::FLAG => {
-                let mut result_ptr: c_int = 0;
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
-                error_to_result(err).map(|_| Format::from_mpv(format, addr_of!(result_ptr) as *const c_void))
-            }
-
-            Format::INT64 => {
-                let mut result_ptr: i64 = 0;
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
-                error_to_result(err).map(|_| Format::from_mpv(format, addr_of!(result_ptr) as *const c_void))
-            }
-
-            Format::DOUBLE => {
-                let mut result_ptr: f64 = 0.0;
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
-                error_to_result(err).map(|_| Format::from_mpv(format, addr_of!(result_ptr) as *const c_void))
-            }
-
-            Format::NODE => {
-                let mut result_ptr: mpv_node = unsafe { std::mem::zeroed() };
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
-                error_to_result(err).map(|_| {
-                    let ret = Format::from_mpv(format, addr_of!(result_ptr) as *const c_void);
-                    unsafe { mpv_free_node_contents(&mut result_ptr) }
-                    ret
-                })
-            }
-
-            Format::NODE_ARRAY | Format::NODE_MAP => {
-                let mut result_ptr: mpv_node_list = unsafe { std::mem::zeroed() };
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
-                error_to_result(err).map(|_| {
-                    Format::from_mpv(format, addr_of!(result_ptr) as *const c_void)
-                })
-            }
-
-            Format::BYTE_ARRAY => {
-                let mut result_ptr: mpv_byte_array = unsafe { std::mem::zeroed() };
-                let err = unsafe { mpv::get_property(self.handle, owned_name.as_ptr(), format, addr_of_mut!(result_ptr) as *mut c_void) };
-                error_to_result(err).map(|_| {
-                    Format::from_mpv(format, addr_of!(result_ptr) as *const c_void)
-                })
-            }
-
-            _ => unimplemented!()
+        unsafe {
+            T::from_mpv(|x| {
+                let err = mpv::get_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT, x);
+                error_to_result(err)
+            })
         }
     }
 
@@ -445,7 +391,7 @@ impl Handle {
     ///
     /// TODO: Make this accept Rusty LogLevels.
     pub fn request_log_messages(&self, min_level: &str) -> Result<i32> {
-        let cstr = CString::from_str(min_level).map_err(|x| Error::Nul(x))?;
+        let cstr = CString::from_str(min_level)?;
 
         let err = unsafe { mpv::request_log_messages(self.handle, cstr.as_ptr()) };
         error_to_result(err)

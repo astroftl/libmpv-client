@@ -1,9 +1,8 @@
 use std::ffi::CStr;
 use std::os::raw::c_void;
 use libmpv_client_sys::{mpv_event, mpv_event_client_message, mpv_event_command, mpv_event_end_file, mpv_event_hook, mpv_event_log_message, mpv_event_property, mpv_event_start_file};
-use crate::error::{error_to_result, Error, Result};
-use crate::format::Format;
-use crate::node::Node;
+use crate::*;
+use crate::error::error_to_result;
 
 #[derive(Debug)]
 pub struct Property {
@@ -12,7 +11,7 @@ pub struct Property {
     /// Data field of the property.
     ///
     /// This is always the same format as the requested format, except when the property could not be retrieved (unavailable, or an error happened), in which case the format is `Format::None`.
-    pub data: Format,
+    pub data: PropertyValue,
 }
 
 #[derive(Debug)]
@@ -252,7 +251,7 @@ impl Property {
         let ptr = ptr as *const mpv_event_property;
 
         let name = unsafe { CStr::from_ptr((*ptr).name).to_string_lossy().to_string() };
-        let data = unsafe { Format::from_mpv((*ptr).format, (*ptr).data) };
+        let data = unsafe { PropertyValue::from_mpv((*ptr).format, (*ptr).data) };
 
         Self { name, data }
     }
@@ -353,7 +352,7 @@ impl Command {
 
         let ptr = ptr as *const mpv_event_command;
 
-        let result = unsafe { Node::from_ptr(&(*ptr).result) };
+        let result = unsafe { Node::from_node_ptr(&(*ptr).result) };
 
         Self { result }
     }

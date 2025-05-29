@@ -1,6 +1,5 @@
-use std::ffi::{CStr, NulError};
+use std::ffi::{CStr, NulError, c_int};
 use std::fmt;
-use std::os::raw::c_int;
 use std::str::Utf8Error;
 use libmpv_client_sys::error_string;
 
@@ -16,6 +15,12 @@ pub fn error_to_result(value: c_int) -> Result<i32> {
     } else {
         Err(Error::from(value))
     }
+}
+
+#[derive(Debug)]
+pub enum RustError {
+    Utf8(Utf8Error),
+    Null(NulError),
 }
 
 /// List of error codes than can be returned by API functions.
@@ -65,21 +70,19 @@ pub enum Error {
     NotImplemented,
     /// Unspecified error.
     Generic,
-    /// Rust specific: UTF-8 Error.
-    Utf8(Utf8Error),
-    /// Rust specific: NULL Error.
-    Nul(NulError),
+    /// Rust implementation specific error.
+    Rust(RustError),
 }
 
 impl From<Utf8Error> for Error {
     fn from(value: Utf8Error) -> Self {
-        Self::Utf8(value)
+        Self::Rust(RustError::Utf8(value))
     }
 }
 
 impl From<NulError> for Error {
     fn from(value: NulError) -> Self {
-        Self::Nul(value)
+        Self::Rust(RustError::Null(value))
     }
 }
 
@@ -147,8 +150,7 @@ impl From<&Error> for c_int {
             Error::Unsupported => libmpv_client_sys::mpv_error_MPV_ERROR_UNSUPPORTED,
             Error::NotImplemented => libmpv_client_sys::mpv_error_MPV_ERROR_NOT_IMPLEMENTED,
             Error::Generic => libmpv_client_sys::mpv_error_MPV_ERROR_GENERIC,
-            Error::Utf8(_) => libmpv_client_sys::mpv_error_MPV_ERROR_GENERIC,
-            Error::Nul(_) => libmpv_client_sys::mpv_error_MPV_ERROR_GENERIC,
+            Error::Rust(_) => libmpv_client_sys::mpv_error_MPV_ERROR_GENERIC,
             Error::Success(x) => *x as c_int,
         }
     }
