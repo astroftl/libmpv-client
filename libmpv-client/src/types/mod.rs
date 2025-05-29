@@ -3,6 +3,7 @@ pub(crate) mod node;
 pub(crate) mod node_array;
 pub(crate) mod node_map;
 pub(crate) mod byte_array;
+mod tests;
 
 pub use basics::OsdString;
 pub use node::Node;
