@@ -19,7 +19,7 @@ use crate::node_map::MpvNodeMap;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
 /// Generic data storage.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     None,
     String(String),
@@ -36,9 +36,9 @@ pub(crate) struct MpvNode<'a> {
     _original: &'a Node,
 
     _owned_cstring: Option<CString>,
-    _array_repr: Option<MpvNodeArray<'a>>,
-    _map_repr: Option<MpvNodeMap<'a>>,
-    _bytes_repr: Option<MpvByteArray<'a>>,
+    _array_repr: Option<Box<MpvNodeArray<'a>>>,
+    _map_repr: Option<Box<MpvNodeMap<'a>>>,
+    _bytes_repr: Option<Box<MpvByteArray<'a>>>,
 
     pub(crate) node: mpv_node,
 }
@@ -47,7 +47,17 @@ impl MpvRepr for MpvNode<'_> {
     type Repr = mpv_node;
 
     fn ptr(&self) -> *const Self::Repr {
-        &raw const self.node
+        let ptr = &raw const self.node;
+
+        // println!("Returning pointer {ptr:p} to node_list: {:#?}", self.node);
+
+        ptr
+    }
+}
+
+impl Drop for MpvNode<'_> {
+    fn drop(&mut self) {
+        // println!("Dropping MpvNode");
     }
 }
 
@@ -73,90 +83,93 @@ impl MpvSend for Node {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let repr = self.to_mpv_repr();
 
-        fun(repr.ptr() as *mut c_void)
+        let ret = fun(repr.ptr() as *mut c_void);
+        
+        ret
     }
 }
 
 impl ToMpvRepr for Node {
     type ReprWrap<'a> = MpvNode<'a>;
 
-    fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
-        let mut owned_cstring = None;
-        let mut array_repr = None;
-        let mut map_repr = None;
-        let mut bytes_repr = None;
+    fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>> {
+        let mut repr = Box::new(MpvNode {
+            _original: self,
+            _owned_cstring: None,
+            _array_repr: None,
+            _map_repr: None,
+            _bytes_repr: None,
+            node: mpv_node { u: mpv_node__bindgen_ty_1 { int64: 0 }, format: 0 },
+        });
 
-        let node = match self {
+        match self {
             Node::None => {
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { flag: 0 },
                     format: mpv_format_MPV_FORMAT_NONE,
                 }
             },
             Node::String(x) => {
-                owned_cstring = Some(CString::new(x.as_bytes()).unwrap_or_default());
-                let cstring_ptr = owned_cstring.as_ref().unwrap().as_ptr();
+                repr._owned_cstring = Some(CString::new(x.as_bytes()).unwrap_or_default());
+                let cstring_ptr = repr._owned_cstring.as_ref().unwrap().as_ptr();
 
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { string: cstring_ptr as *mut c_char },
                     format: mpv_format_MPV_FORMAT_STRING,
                 }
             }
             Node::Flag(x) => {
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { flag: if *x { 1 } else { 0 } },
                     format: mpv_format_MPV_FORMAT_FLAG,
                 }
             }
             Node::Int64(x) => {
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { int64: *x },
                     format: mpv_format_MPV_FORMAT_INT64,
                 }
             }
             Node::Double(x) => {
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { double_: *x },
                     format: mpv_format_MPV_FORMAT_DOUBLE,
                 }
             }
             Node::Array(x) => {
-                array_repr = Some(x.to_mpv_repr());
-                let mpv_ptr = array_repr.as_ref().unwrap().ptr();
+                repr._array_repr = Some(x.to_mpv_repr());
+                let mpv_ptr = repr._array_repr.as_ref().unwrap().ptr();
+                // println!("got pointer {mpv_ptr:p} for _array_repr");
 
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { list: mpv_ptr as *mut mpv_node_list },
                     format: mpv_format_MPV_FORMAT_NODE_ARRAY,
                 }
             }
             Node::Map(x) => {
-                map_repr = Some(x.to_mpv_repr());
-                let mpv_ptr = map_repr.as_ref().unwrap().ptr();
+                repr._map_repr = Some(x.to_mpv_repr());
+                let mpv_ptr = repr._map_repr.as_ref().unwrap().ptr();
+                // println!("got pointer {mpv_ptr:p} for _map_repr");
 
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { list: mpv_ptr as *mut mpv_node_list },
                     format: mpv_format_MPV_FORMAT_NODE_MAP,
                 }
             }
             Node::ByteArray(x) => {
-                bytes_repr = Some(x.to_mpv_repr());
-                let mpv_ptr = bytes_repr.as_ref().unwrap().ptr();
+                repr._bytes_repr = Some(x.to_mpv_repr());
+                let mpv_ptr = repr._bytes_repr.as_ref().unwrap().ptr();
 
-                mpv_node {
+                repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { ba: mpv_ptr as *mut mpv_byte_array },
                     format: mpv_format_MPV_FORMAT_BYTE_ARRAY,
                 }
             }
         };
 
-        MpvNode {
-            _original: self,
-            _owned_cstring: owned_cstring,
-            _array_repr: array_repr,
-            _map_repr: map_repr,
-            _bytes_repr: bytes_repr,
-            node,
-        }
+        // println!("created Node repr: {repr:#?}");
+
+        repr
     }
 }
 

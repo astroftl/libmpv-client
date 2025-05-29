@@ -1,24 +1,24 @@
 use std::collections::HashMap;
 use std::ffi::{CStr, CString,c_char, c_int, c_void};
-use std::ptr::null;
+use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_format, mpv_format_MPV_FORMAT_NODE_MAP, mpv_node, mpv_node_list};
 use crate::*;
 use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
 /// Used with mpv_node only. Can usually not be used directly.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NodeMap(pub HashMap<String, Node>);
 
 #[derive(Debug)]
 pub(crate) struct MpvNodeMap<'a> {
     _original: &'a NodeMap,
 
-    _guarded_nodes: Vec<MpvNode<'a>>,
-    _flat_nodes: Box<[mpv_node]>,
+    _owned_reprs: Vec<Box<MpvNode<'a>>>,
+    _flat_reprs: Vec<mpv_node>,
 
     _owned_keys: Vec<CString>,
-    _flat_keys: Box<[*const c_char]>,
+    _flat_keys: Vec<*const c_char>,
 
     node_list: mpv_node_list,
 }
@@ -27,7 +27,11 @@ impl MpvRepr for MpvNodeMap<'_> {
     type Repr = mpv_node_list;
 
     fn ptr(&self) -> *const Self::Repr {
-        &self.node_list
+        let ptr = &raw const self.node_list;
+
+        // println!("Returning pointer {ptr:p} to node_list: {:#?}", self.node_list);
+
+        ptr
     }
 }
 
@@ -56,38 +60,34 @@ impl MpvSend for NodeMap {
 impl ToMpvRepr for NodeMap {
     type ReprWrap<'a> = MpvNodeMap<'a>;
 
-    fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
-        let mut guarded_nodes = Vec::with_capacity(self.0.len());
-        let mut owned_keys = Vec::with_capacity(self.0.len());
+    fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>> {
+        let mut repr = Box::new(MpvNodeMap {
+            _original: self,
+            _owned_reprs: Vec::with_capacity(self.0.len()),
+            _flat_reprs: Vec::with_capacity(self.0.len()),
+            _owned_keys: Vec::with_capacity(self.0.len()),
+            _flat_keys: Vec::with_capacity(self.0.len()),
+            node_list: mpv_node_list {
+                num: self.0.len() as c_int,
+                values: null_mut(),
+                keys: null_mut(),
+            },
+        });
 
         for (key, value) in &self.0 {
-            owned_keys.push(CString::new(key.as_bytes()).unwrap_or_default());
-            guarded_nodes.push(value.to_mpv_repr());
+            repr._owned_keys.push(CString::new(key.as_bytes()).unwrap_or_default());
+            repr._flat_keys.push(repr._owned_keys.last().unwrap().as_ptr());
+
+            repr._owned_reprs.push(value.to_mpv_repr());
+            repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node);
         }
 
-        let flat_nodes = guarded_nodes.iter().map(|x| x.node).collect::<Vec<_>>().into_boxed_slice();
-        let flat_keys = owned_keys.iter().map(|x| x.as_ptr()).collect::<Vec<_>>().into_boxed_slice();
+        repr.node_list.values = repr._flat_reprs.as_ptr() as *mut _;
+        repr.node_list.keys = repr._flat_keys.as_ptr() as *mut _;
 
-        let (values_ptr, keys_ptr) = if self.0.is_empty() {
-            (null(), null())
-        } else {
-            (flat_nodes.as_ptr(), flat_keys.as_ptr())
-        };
+        // println!("created NodeMap repr: {repr:#?}");
 
-        let node_list = mpv_node_list {
-            num: self.0.len() as c_int,
-            values: values_ptr as *mut mpv_node,
-            keys: keys_ptr as *mut *mut c_char,
-        };
-
-        MpvNodeMap {
-            _original: self,
-            _guarded_nodes: guarded_nodes,
-            _flat_nodes: flat_nodes,
-            _owned_keys: owned_keys,
-            _flat_keys: flat_keys,
-            node_list,
-        }
+        repr
     }
 }
 
