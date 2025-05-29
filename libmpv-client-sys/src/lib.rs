@@ -1,10 +1,29 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![cfg(not(doctest))]
+
+pub const EXPECTED_MPV_VERSION: u32 = 131077;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-pub const EXPECTED_MPV_VERSION: u32 = 131077;
+use std::fmt::{Debug, Formatter};
+
+impl Debug for mpv_node {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self.format {
+            mpv_format_MPV_FORMAT_NONE => f.debug_struct("mpv_node").field("format", &self.format).finish(),
+            mpv_format_MPV_FORMAT_STRING => f.debug_struct("mpv_node").field("format", &self.format).field("string", unsafe { &self.u.string }).finish(),
+            mpv_format_MPV_FORMAT_FLAG => f.debug_struct("mpv_node").field("format", &self.format).field("flag", unsafe { &self.u.flag }).finish(),
+            mpv_format_MPV_FORMAT_INT64 => f.debug_struct("mpv_node").field("format", &self.format).field("int64", unsafe { &self.u.int64 }).finish(),
+            mpv_format_MPV_FORMAT_DOUBLE => f.debug_struct("mpv_node").field("format", &self.format).field("double", unsafe { &self.u.double_ }).finish(),
+            mpv_format_MPV_FORMAT_NODE_ARRAY => f.debug_struct("mpv_node").field("format", &self.format).field("node_array", unsafe { &*self.u.list }).finish(),
+            mpv_format_MPV_FORMAT_NODE_MAP => f.debug_struct("mpv_node").field("format", &self.format).field("node_map", unsafe { &*self.u.list }).finish(),
+            mpv_format_MPV_FORMAT_BYTE_ARRAY => f.debug_struct("mpv_node").field("format", &self.format).field("byte_array", unsafe { &*self.u.ba }).finish(),
+            _ => unreachable!()
+        }
+    }
+}
 
 use paste::paste;
 
