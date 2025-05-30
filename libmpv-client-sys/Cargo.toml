@@ -8,6 +8,9 @@ license.workspace = true
 keywords.workspace = true
 build = "build.rs"
 
+[features]
+dyn-sym = []
+
 [dependencies]
 paste = "1.0"
 

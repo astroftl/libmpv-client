@@ -1,25 +1,32 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
 #![cfg(not(doctest))]
 
-pub const EXPECTED_MPV_VERSION: u32 = 131077;
+mod mpv_funcs;
+mod mpv_data;
+pub mod mpv_pfns;
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+pub use mpv_data::*;
+
+#[cfg(feature = "dyn-sym")]
+use mpv_pfns::*;
+
+#[cfg(not(feature = "dyn-sym"))]
+use mpv_funcs::*;
+
+pub const EXPECTED_MPV_VERSION: u32 = 131077;
 
 use std::fmt::{Debug, Formatter};
 
 impl Debug for mpv_node {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.format {
-            mpv_format_MPV_FORMAT_NONE => f.debug_struct("mpv_node").field("format", &self.format).finish(),
-            mpv_format_MPV_FORMAT_STRING => f.debug_struct("mpv_node").field("format", &self.format).field("string", unsafe { &self.u.string }).finish(),
-            mpv_format_MPV_FORMAT_FLAG => f.debug_struct("mpv_node").field("format", &self.format).field("flag", unsafe { &self.u.flag }).finish(),
-            mpv_format_MPV_FORMAT_INT64 => f.debug_struct("mpv_node").field("format", &self.format).field("int64", unsafe { &self.u.int64 }).finish(),
-            mpv_format_MPV_FORMAT_DOUBLE => f.debug_struct("mpv_node").field("format", &self.format).field("double", unsafe { &self.u.double_ }).finish(),
-            mpv_format_MPV_FORMAT_NODE_ARRAY => f.debug_struct("mpv_node").field("format", &self.format).field("node_array", unsafe { &*self.u.list }).finish(),
-            mpv_format_MPV_FORMAT_NODE_MAP => f.debug_struct("mpv_node").field("format", &self.format).field("node_map", unsafe { &*self.u.list }).finish(),
-            mpv_format_MPV_FORMAT_BYTE_ARRAY => f.debug_struct("mpv_node").field("format", &self.format).field("byte_array", unsafe { &*self.u.ba }).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_NONE => f.debug_struct("mpv_node").field("format", &self.format).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_STRING => f.debug_struct("mpv_node").field("format", &self.format).field("string", unsafe { &self.u.string }).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_FLAG => f.debug_struct("mpv_node").field("format", &self.format).field("flag", unsafe { &self.u.flag }).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_INT64 => f.debug_struct("mpv_node").field("format", &self.format).field("int64", unsafe { &self.u.int64 }).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_DOUBLE => f.debug_struct("mpv_node").field("format", &self.format).field("double", unsafe { &self.u.double_ }).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_NODE_ARRAY => f.debug_struct("mpv_node").field("format", &self.format).field("node_array", unsafe { &*self.u.list }).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_NODE_MAP => f.debug_struct("mpv_node").field("format", &self.format).field("node_map", unsafe { &*self.u.list }).finish(),
+            mpv_data::mpv_format_MPV_FORMAT_BYTE_ARRAY => f.debug_struct("mpv_node").field("format", &self.format).field("byte_array", unsafe { &*self.u.ba }).finish(),
             _ => unreachable!()
         }
     }
@@ -247,4 +254,19 @@ mpv_functions! {
     hook_continue(ctx: *mut mpv_handle, id: u64) -> ::std::os::raw::c_int;
     #[doc = " Return a UNIX file descriptor referring to the read end of a pipe. This\n pipe can be used to wake up a poll() based processing loop. The purpose of\n this function is very similar to mpv_set_wakeup_callback(), and provides\n a primitive mechanism to handle coordinating a foreign event loop and the\n libmpv event loop. The pipe is non-blocking. It's closed when the mpv_handle\n is destroyed. This function always returns the same value (on success).\n\n This is in fact implemented using the same underlying code as for\n mpv_set_wakeup_callback() (though they don't conflict), and it is as if each\n callback invocation writes a single 0 byte to the pipe. When the pipe\n becomes readable, the code calling poll() (or select()) on the pipe should\n read all contents of the pipe and then call mpv_wait_event(c, 0) until\n no new events are returned. The pipe contents do not matter and can just\n be discarded. There is not necessarily one byte per readable event in the\n pipe. For example, the pipes are non-blocking, and mpv won't block if the\n pipe is full. Pipes are normally limited to 4096 bytes, so if there are\n more than 4096 events, the number of readable bytes can not equal the number\n of events queued. Also, it's possible that mpv does not write to the pipe\n once it's guaranteed that the client was already signaled. See the example\n below how to do it correctly.\n\n Example:\n\n  int pipefd = mpv_get_wakeup_pipe(mpv);\n  if (pipefd < 0)\n      error();\n  while (1) {\n      struct pollfd pfds[1] = {\n          { .fd = pipefd, .events = POLLIN },\n      };\n      // Wait until there are possibly new mpv events.\n      poll(pfds, 1, -1);\n      if (pfds[0].revents & POLLIN) {\n          // Empty the pipe. Doing this before calling mpv_wait_event()\n          // ensures that no wakeups are missed. It's not so important to\n          // make sure the pipe is really empty (it will just cause some\n          // additional wakeups in unlikely corner cases).\n          char unused[256];\n          read(pipefd, unused, sizeof(unused));\n          while (1) {\n              mpv_event *ev = mpv_wait_event(mpv, 0);\n              // If MPV_EVENT_NONE is received, the event queue is empty.\n              if (ev->event_id == MPV_EVENT_NONE)\n                  break;\n              // Process the event.\n              ...\n          }\n      }\n  }\n\n @deprecated this function will be removed in the future. If you need this\n             functionality, use mpv_set_wakeup_callback(), create a pipe\n             manually, and call write() on your pipe in the callback.\n\n @return A UNIX FD of the read end of the wakeup pipe, or -1 on error.\n         On MS Windows/MinGW, this will always return -1."]
     get_wakeup_pipe(ctx: *mut mpv_handle) -> ::std::os::raw::c_int;
+}
+
+pub use mpv_stubs::setup_mpv_stubs;
+
+mod mpv_stubs {
+    use std::ffi::c_void;
+    use crate::mpv_node;
+    use crate::mpv_pfns::{pfn_mpv_free, pfn_mpv_free_node_contents};
+
+    pub fn setup_mpv_stubs(free: extern "C" fn(data: *mut c_void), free_node_contents: extern "C" fn(node: *mut mpv_node)) {
+        unsafe {
+            pfn_mpv_free = Some(free);
+            pfn_mpv_free_node_contents = Some(free_node_contents)
+        }
+    }
 }

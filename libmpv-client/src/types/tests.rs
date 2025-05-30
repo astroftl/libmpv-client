@@ -4,13 +4,23 @@
 use std::collections::HashMap;
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::ptr::null_mut;
-use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
-use crate::{setup_mpv_stubs, ByteArray, Node, NodeArray, NodeMap};
+use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list, setup_mpv_stubs};
+use crate::{ByteArray, Node, NodeArray, NodeMap};
 use crate::traits::MpvSend;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn mpv_free_stub(_data: *mut c_void) {
+    println!("mpv free()'d")
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn mpv_free_node_contents_stub(_node: *mut mpv_node) {
+    println!("mpv free()'d node contents")
+}
 
 #[test]
 fn string_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cstring = CString::new("hello, world!".as_bytes()).unwrap();
 
@@ -24,7 +34,7 @@ fn string_from_mpv() {
 
 #[test]
 fn string_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let string = String::from("hello, world!");
 
@@ -39,7 +49,7 @@ fn string_to_mpv() {
 
 #[test]
 fn flag_true_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cflag: c_int = 1;
 
@@ -53,7 +63,7 @@ fn flag_true_from_mpv() {
 
 #[test]
 fn flag_false_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cflag: c_int = 0;
 
@@ -67,7 +77,7 @@ fn flag_false_from_mpv() {
 
 #[test]
 fn flag_true_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let flag = true;
     flag.to_mpv(|x| {
@@ -79,7 +89,7 @@ fn flag_true_to_mpv() {
 
 #[test]
 fn flag_false_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let flag = false;
     flag.to_mpv(|x| {
@@ -91,7 +101,7 @@ fn flag_false_to_mpv() {
 
 #[test]
 fn int64_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cval: i64 = 123456;
 
@@ -105,7 +115,7 @@ fn int64_from_mpv() {
 
 #[test]
 fn int64_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let val: i64 = 654321;
 
@@ -118,7 +128,7 @@ fn int64_to_mpv() {
 
 #[test]
 fn double_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cval: f64 = 456.789;
 
@@ -132,7 +142,7 @@ fn double_from_mpv() {
 
 #[test]
 fn double_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let val: f64 = 987.654;
 
@@ -145,7 +155,7 @@ fn double_to_mpv() {
 
 #[test]
 fn node_none_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cnode = mpv_node {
         u: mpv_node__bindgen_ty_1 { flag: 0 },
@@ -164,7 +174,7 @@ fn node_none_from_mpv() {
 
 #[test]
 fn node_none_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let node = Node::None;
 
@@ -178,7 +188,7 @@ fn node_none_to_mpv() {
 
 #[test]
 fn node_string_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cstring = CString::new("hello, world!").unwrap();
     let cnode = mpv_node {
@@ -198,7 +208,7 @@ fn node_string_from_mpv() {
 
 #[test]
 fn node_string_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let node = Node::String(String::from("hello, world!"));
 
@@ -216,7 +226,7 @@ fn node_string_to_mpv() {
 
 #[test]
 fn node_flag_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cnode = mpv_node {
         u: mpv_node__bindgen_ty_1 { flag: 1 },
@@ -235,7 +245,7 @@ fn node_flag_from_mpv() {
 
 #[test]
 fn node_flag_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let node = Node::Flag(true);
 
@@ -253,7 +263,7 @@ fn node_flag_to_mpv() {
 
 #[test]
 fn node_complex_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let c_five_string = CString::new("five").unwrap();
     let c_counting_array_map_buffer = [
@@ -405,7 +415,7 @@ fn node_complex_from_mpv() {
 
 #[test]
 fn node_complex_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let test_map = Node::Map(NodeMap(HashMap::from([
         ("none".to_string(), Node::None),
@@ -557,7 +567,7 @@ fn node_complex_to_mpv() {
 
 #[test]
 fn nodemap_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cstring = CString::new("hello, world!").unwrap();
     let cnodes = [
@@ -608,7 +618,7 @@ fn nodemap_from_mpv() {
 
 #[test]
 fn nodemap_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let map = HashMap::from([
         ("first".to_string(), Node::String("hello, world!".to_string())),
@@ -669,7 +679,7 @@ fn nodemap_to_mpv() {
 
 #[test]
 fn nodearray_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cstring = CString::new("hello, world!").unwrap();
     let cnodes = [
@@ -712,7 +722,7 @@ fn nodearray_from_mpv() {
 
 #[test]
 fn nodearray_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let nodearray = NodeArray(vec![
         Node::String(String::from("hello, world!")),
@@ -749,7 +759,7 @@ fn nodearray_to_mpv() {
 
 #[test]
 fn ba_from_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let cbuffer: [u8; 8] = [0x10, 0x20, 0x30, 0x40, 0xA0, 0xB0, 0xC0, 0xD0];
     let cba = mpv_byte_array {
@@ -767,7 +777,7 @@ fn ba_from_mpv() {
 
 #[test]
 fn ba_to_mpv() {
-    setup_mpv_stubs();
+    setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
     let buffer: ByteArray = vec![0xF0, 0xE0, 0xD0, 0xC0, 0x80, 0x70, 0x60, 0x50];
 

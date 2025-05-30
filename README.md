@@ -14,7 +14,7 @@ use libmpv_client::*;
 extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     let client = Handle::from_ptr(handle);
 
-    println!("Hi from Rust!");
+    println!("Hello from Rust!");
 
     loop {
         match client.wait_event(0.0) {
@@ -26,11 +26,13 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                         return 0;
                     },
                     Event::None => {},
-                    _ => {},
+                    event => {
+                        println!("Rust got event: {event:?}");
+                    },
                 }
             }
             Err(e) => {
-                println!("wait_event error: {e:?}");
+                println!("Rust got error: {e:?}");
             }
         }
     }

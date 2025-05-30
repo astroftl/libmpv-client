@@ -12,3 +12,6 @@ name = "libmpv_client"
 
 [dependencies]
 libmpv-client-sys = { path = "../libmpv-client-sys" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+libmpv-client-sys = { path = "../libmpv-client-sys", features = ["dyn-sym"] }
