@@ -16,7 +16,7 @@ pub(crate) struct MpvByteArray<'a> {
 impl MpvRepr for MpvByteArray<'_> {
     type Repr = mpv_byte_array;
 
-    fn ptr(&self) -> *const mpv_byte_array {
+    fn ptr(&self) -> *const Self::Repr {
         &raw const self.byte_array
     }
 }

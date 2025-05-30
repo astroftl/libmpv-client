@@ -28,11 +28,7 @@ impl MpvRepr for MpvNodeMap<'_> {
     type Repr = mpv_node_list;
 
     fn ptr(&self) -> *const Self::Repr {
-        let ptr = &raw const self.node_list;
-
-        // println!("Returning pointer {ptr:p} to node_list: {:#?}", self.node_list);
-
-        ptr
+        &raw const self.node_list
     }
 }
 
