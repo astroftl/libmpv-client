@@ -2,21 +2,30 @@
 //!
 //! A Rust implementation of the mpv client API, suitable for cplugins.
 
-mod handle;
-mod event;
-mod error;
-mod property;
-mod types;
-mod traits;
-pub mod version;
+#[macro_use]
+mod macros;
 
 use libmpv_client_sys as mpv;
 pub use mpv::mpv_handle;
+
+mod traits;
+
+mod handle;
 pub use handle::Handle;
-pub use event::{Event, EventId};
+
+mod property;
 pub use property::PropertyValue;
+
+pub mod event;
+pub use event::{Event, EventId};
+
+mod types;
 pub use types::*;
+
+pub mod error;
 pub use error::{Error, Result};
+
+pub mod version;
 
 #[cfg(test)]
 pub use mpv_stubs::setup_mpv_stubs;

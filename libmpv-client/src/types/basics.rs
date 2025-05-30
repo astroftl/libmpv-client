@@ -12,16 +12,10 @@ impl MpvSend for String {
     const MPV_FORMAT: Format = Format::STRING;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let cstr = unsafe { *(ptr as *const *const c_char) };
 
-        if cstr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-        
+        check_null!(cstr);
         Ok(unsafe { CStr::from_ptr(cstr) }.to_str()?.to_string())
     }
 
@@ -63,10 +57,7 @@ impl MpvSend for bool {
     const MPV_FORMAT: Format = Format::FLAG;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         Ok(unsafe { *(ptr as *const c_int) != 0 })
     }
 
@@ -85,10 +76,7 @@ impl MpvSend for i64 {
     const MPV_FORMAT: Format = Format::INT64;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         Ok(unsafe { *(ptr as *const Self) })
     }
 
@@ -106,10 +94,7 @@ impl MpvSend for f64 {
     const MPV_FORMAT: Format = Format::DOUBLE;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         Ok(unsafe { *(ptr as *const Self) })
     }
 

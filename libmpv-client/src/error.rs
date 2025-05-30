@@ -9,7 +9,7 @@ use libmpv_client_sys::error_string;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Interpret an error code from an mpv API function into a `Result`, retaining the success code.
-pub fn error_to_result(value: c_int) -> Result<i32> {
+pub(crate) fn error_to_result(value: c_int) -> Result<i32> {
     if value >= 0 {
         Ok(value as i32)
     } else {
@@ -24,6 +24,14 @@ pub struct VersionError {
 }
 
 #[derive(Debug)]
+pub struct DebugLoc {
+    pub file: &'static str,
+    pub line: u32,
+    pub function: &'static str,
+    pub variable: Option<&'static str>,
+}
+
+#[derive(Debug)]
 pub enum RustError {
     /// Invalid UTF-8 data was encountered while parsing a C string into a Rust string.
     InvalidUtf8(Utf8Error),
@@ -33,7 +41,7 @@ pub enum RustError {
     /// mpv provided us with a null or otherwise malformed pointer.
     ///
     /// This can happen occasionally, especially during init, and is not fatal.
-    Pointer,
+    Pointer(Option<DebugLoc>),
 }
 
 /// List of error codes than can be returned by API functions.

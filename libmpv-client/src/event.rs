@@ -97,10 +97,7 @@ pub enum Event {
 
 impl Event {
     pub(crate) fn from_ptr(ptr: *const mpv_event) -> Result<Event> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let event = unsafe { *ptr };
 
         match event.event_id {
@@ -177,16 +174,10 @@ pub struct Property {
 
 impl Property {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer));
-        }
-
+        check_null!(ptr);
         let event_prop = unsafe { *(ptr as *const mpv_event_property) };
 
-        if event_prop.name.is_null() {
-            return Err(Error::Rust(RustError::Pointer));
-        }
-
+        check_null!(event_prop.name);
         let name = unsafe { CStr::from_ptr(event_prop.name).to_str()?.to_string() };
 
         let data = unsafe { PropertyValue::from_mpv(event_prop.format, event_prop.data)? };
@@ -226,10 +217,7 @@ pub struct LogMessage {
 
 impl LogMessage {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let event_log_message = unsafe { *(ptr as *const mpv_event_log_message) };
 
         let level = match event_log_message.log_level {
@@ -243,16 +231,10 @@ impl LogMessage {
             _ => unimplemented!()
         };
 
-        if event_log_message.prefix.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(event_log_message.prefix);
         let prefix = unsafe { CStr::from_ptr(event_log_message.prefix) }.to_str()?.to_string();
 
-        if event_log_message.text.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(event_log_message.text);
         let text = unsafe { CStr::from_ptr(event_log_message.text) }.to_str()?.to_string();
 
         Ok(Self { level, prefix, text })
@@ -265,24 +247,16 @@ pub struct ClientMessage(pub Vec<String>);
 
 impl ClientMessage {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-        
+        check_null!(ptr);
         let event_client_message = unsafe { *(ptr as *const mpv_event_client_message) };
 
         let mut args = Vec::with_capacity(event_client_message.num_args as usize);
 
-        if event_client_message.args.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(event_client_message.args);
         let event_args = unsafe { std::slice::from_raw_parts(event_client_message.args, event_client_message.num_args as usize) };
+        
         for event_arg in event_args {
-            if event_arg.is_null() {
-                return Err(Error::Rust(RustError::Pointer))
-            }
-
+            check_null!(event_arg);
             args.push(unsafe { CStr::from_ptr(*event_arg).to_str()?.to_string() });
         }
 
@@ -298,10 +272,7 @@ pub struct StartFile {
 
 impl StartFile {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let event_start_file = unsafe { *(ptr as *const mpv_event_start_file) };
 
         Ok(Self {
@@ -352,10 +323,7 @@ pub struct EndFile {
 
 impl EndFile {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let event_end_file = unsafe { *(ptr as *const mpv_event_end_file) };
 
         let reason = match event_end_file.reason {
@@ -386,16 +354,10 @@ pub struct Hook {
 
 impl Hook {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let event_hook = unsafe { *(ptr as *const mpv_event_hook) };
 
-        if event_hook.name.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(event_hook.name);
         let name = unsafe { CStr::from_ptr(event_hook.name) }.to_str()?.to_string();
 
         let id = event_hook.id;
@@ -416,10 +378,7 @@ pub struct Command {
 
 impl Command {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let event_command = unsafe { *(ptr as *const mpv_event_command) };
 
         let result = unsafe { Node::from_node_ptr(&event_command.result)? };

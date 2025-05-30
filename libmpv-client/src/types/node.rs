@@ -154,17 +154,14 @@ impl ToMpvRepr for Node {
                 }
             }
         };
-        
+
         repr
     }
 }
 
 impl Node {
     pub(crate) unsafe fn from_node_ptr(ptr: *const mpv_node) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let node = unsafe { *ptr };
 
         match node.format {

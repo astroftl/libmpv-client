@@ -25,16 +25,10 @@ impl MpvSend for ByteArray {
     const MPV_FORMAT: Format = Format::BYTE_ARRAY;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let byte_array = unsafe { *(ptr as *const mpv_byte_array) };
 
-        if byte_array.data.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(byte_array.data);
         Ok(unsafe { std::slice::from_raw_parts(byte_array.data as *const u8, byte_array.size) }.to_vec())
     }
 

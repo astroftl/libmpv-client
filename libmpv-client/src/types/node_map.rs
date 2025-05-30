@@ -36,15 +36,12 @@ impl MpvSend for NodeMap {
     const MPV_FORMAT: Format = Format::NODE_MAP;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
+        check_null!(ptr);
 
         let node_list = unsafe { *(ptr as *const mpv_node_list) };
 
-        if node_list.values.is_null() || node_list.keys.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
+        check_null!(node_list.values);
+        check_null!(node_list.keys);
 
         let mut values = Vec::with_capacity(node_list.num as usize);
         let mut keys = Vec::with_capacity(node_list.num as usize);
@@ -108,8 +105,6 @@ impl ToMpvRepr for NodeMap {
 
         repr.node_list.values = repr._flat_reprs.as_ptr() as *mut _;
         repr.node_list.keys = repr._flat_keys.as_ptr() as *mut _;
-
-        // println!("created NodeMap repr: {repr:#?}");
 
         repr
     }

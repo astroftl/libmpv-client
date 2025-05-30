@@ -32,16 +32,10 @@ impl MpvSend for NodeArray {
     const MPV_FORMAT: Format = Format::NODE_ARRAY;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
-        if ptr.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(ptr);
         let node_list = unsafe { *(ptr as *const mpv_node_list) };
 
-        if node_list.values.is_null() {
-            return Err(Error::Rust(RustError::Pointer))
-        }
-
+        check_null!(node_list.values);
         let mut values = Vec::with_capacity(node_list.num as usize);
 
         let node_values = unsafe { std::slice::from_raw_parts(node_list.values, node_list.num as usize) };
@@ -88,8 +82,6 @@ impl ToMpvRepr for NodeArray {
         }
 
         repr.node_list.values = repr._flat_reprs.as_ptr() as *mut _;
-
-        // println!("created NodeArray repr: {repr:#?}");
 
         repr
     }
