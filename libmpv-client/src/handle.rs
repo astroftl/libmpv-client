@@ -351,7 +351,7 @@ impl Handle {
             return Err(Error::Generic)
         }
 
-        let string = unsafe { CStr::from_ptr(cstr) }.to_string_lossy().to_string();
+        let string = unsafe { CStr::from_ptr(cstr) }.to_str()?.to_string();
 
         unsafe { mpv::free(cstr as *mut c_void) };
 
@@ -371,7 +371,7 @@ impl Handle {
             return Err(Error::Generic)
         }
 
-        let string = unsafe { CStr::from_ptr(cstr) }.to_string_lossy().to_string();
+        let string = unsafe { CStr::from_ptr(cstr) }.to_str()?.to_string();
 
         unsafe { mpv::free(cstr as *mut c_void) };
 

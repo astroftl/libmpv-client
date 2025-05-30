@@ -50,8 +50,7 @@ impl MpvSend for NodeMap {
         for node_value in node_values {
             values.push(unsafe { Node::from_node_ptr(node_value)? });
         }
-
-        // TODO: Raise the UTF-8 error of to_str() and remove lossy
+        
         let node_keys = unsafe { std::slice::from_raw_parts(node_list.keys, node_list.num as usize) };
         for node_key in node_keys {
             keys.push(unsafe { CStr::from_ptr(*node_key) }.to_str()?.to_string());
