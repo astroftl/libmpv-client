@@ -2,7 +2,6 @@ use std::ffi::{c_int, c_void};
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
 use crate::*;
-use crate::error::RustError;
 use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 

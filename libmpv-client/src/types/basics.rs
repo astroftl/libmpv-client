@@ -2,7 +2,6 @@ use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::ptr::null_mut;
 use libmpv_client_sys::free;
 use crate::*;
-use crate::error::RustError;
 use crate::traits::MpvSend;
 
 #[derive(Debug)]

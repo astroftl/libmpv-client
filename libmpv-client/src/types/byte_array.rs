@@ -1,7 +1,6 @@
 use std::ffi::c_void;
 use libmpv_client_sys::mpv_byte_array;
 use crate::*;
-use crate::error::RustError;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
 pub type ByteArray = Vec<u8>;

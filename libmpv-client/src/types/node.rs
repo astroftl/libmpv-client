@@ -14,7 +14,6 @@ use libmpv_client_sys as mpv;
 use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_BYTE_ARRAY, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
 use crate::*;
 use crate::byte_array::MpvByteArray;
-use crate::error::RustError;
 use crate::node_array::MpvNodeArray;
 use crate::node_map::MpvNodeMap;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
