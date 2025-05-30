@@ -22,7 +22,7 @@ pub extern "C" fn mpv_free_node_contents_stub(_node: *mut mpv_node) {
 fn string_from_mpv() {
     setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
-    let cstring = CString::new("hello, world!".as_bytes()).unwrap();
+    let cstring = CString::new("hello, world!").unwrap();
 
     let string = unsafe { String::from_mpv(|x| {
         *(x as *mut *const c_char) = cstring.as_ptr();

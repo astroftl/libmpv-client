@@ -1,4 +1,4 @@
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
 use std::ptr::null;
 use std::str::FromStr;
@@ -112,8 +112,8 @@ impl Handle {
     /// Create a new client `Handle` connected to the same player core as `Self`. This context has its own event queue, its own `request_event()` state, its own `request_log_messages()` state, its own set of observed properties, and its own state for asynchronous operations. Otherwise, everything is shared.
     ///
     /// This handle should be destroyed with `destroy()` if no longer needed. The core will live as long as there is at least 1 handle referencing it. Any handle can make the core quit, which will result in every handle receiving `Event::Shutdown`.
-    pub fn create_client(&self, name: impl ToString) -> Result<Handle> {
-        let name_str = CString::new(name.to_string().as_bytes())?;
+    pub fn create_client(&self, name: &str) -> Result<Handle> {
+        let name_str = CString::new(name)?;
 
         let handle = unsafe { mpv::create_client(self.handle, name_str.as_ptr()) };
         Ok(Handle::from_ptr(handle))
@@ -122,8 +122,8 @@ impl Handle {
     /// This is the same as `create_client()`, but the created `mpv_handle` is treated as a weak reference. If all `mpv_handles` referencing a core are weak references, the core is automatically destroyed. (This still goes through normal uninit of course. Effectively, if the last non-weak `mpv_handle` is destroyed, then the weak `mpv_handles` receive `Event::Shutdown` and are asked to terminate as well.)
     ///
     /// Note if you want to use this like refcounting: you have to be aware that `terminate_destroy()` _and_ `destroy()` for the last non-weak `mpv_handle` will block until all weak `mpv_handles` are destroyed.
-    pub fn create_weak_client(&self, name: impl ToString) -> Result<Handle> {
-        let name_str = CString::new(name.to_string().as_bytes())?;
+    pub fn create_weak_client(&self, name: &str) -> Result<Handle> {
+        let name_str = CString::new(name)?;
 
         let handle = unsafe { mpv::create_weak_client(self.handle, name_str.as_ptr()) };
         Ok(Handle::from_ptr(handle))
@@ -137,8 +137,8 @@ impl Handle {
     ///
     /// # Return
     /// A `Result<i32> where the Ok value is the success code returned from mpv.
-    pub fn load_config_file(&self, filename: impl ToString) -> Result<i32> {
-        let filename_str = CString::new(filename.to_string().as_bytes())?;
+    pub fn load_config_file(&self, filename: &str) -> Result<i32> {
+        let filename_str = CString::new(filename)?;
 
         let err = unsafe { mpv::load_config_file(self.handle, filename_str.as_ptr()) };
         error_to_result(err)
@@ -167,26 +167,13 @@ impl Handle {
     /// # Return
     /// A `Result<i32> where the Ok value is the success code returned from mpv.
     #[deprecated = "For most purposes, this is not needed anymore. Starting with mpv version 0.21.0 (version 1.23) most options can be set with mpv_set_property() (and related functions), and even before mpv_initialize(). In some obscure corner cases, using this function to set options might still be required (see \"Inconsistencies between options and properties\" in the manpage). Once these are resolved, the option setting functions might be fully deprecated."]
-    pub fn set_option<T: MpvSend>(&self, name: impl ToString, data: T) -> Result<i32> {
-        let name_str = CString::new(name.to_string().as_bytes())?;
+    pub fn set_option<T: MpvSend>(&self, name: &str, data: T) -> Result<i32> {
+        let name_str = CString::new(name)?;
 
         data.to_mpv(|x| {
             let err = unsafe { mpv::set_option(self.handle, name_str.as_ptr(), T::MPV_FORMAT.0, x) };
             error_to_result(err)
         })
-    }
-
-    /// Convenience function to set an option to a string value. This is like calling `set_option()` with `Format::String`.
-    ///
-    /// # Return
-    /// A `Result<i32> where the Ok value is the success code returned from mpv.
-    #[deprecated = "For most purposes, this is not needed anymore. Starting with mpv version 0.21.0 (version 1.23) most options can be set with mpv_set_property() (and related functions), and even before mpv_initialize(). In some obscure corner cases, using this function to set options might still be required (see \"Inconsistencies between options and properties\" in the manpage). Once these are resolved, the option setting functions might be fully deprecated."]
-    pub fn set_option_string(&self, name: impl ToString, data: impl ToString) -> Result<i32> {
-        let name_str = CString::new(name.to_string().as_bytes())?;
-        let data_str = CString::new(data.to_string().as_bytes())?;
-
-        let err = unsafe { mpv::set_option_string(self.handle, name_str.as_ptr(), data_str.as_ptr()) };
-        error_to_result(err)
     }
 
     /// Send a command to the player. Commands are the same as those used in input.conf, except that this function takes parameters in a pre-split form.
@@ -200,10 +187,10 @@ impl Handle {
     ///
     /// # Return
     /// A `Result<i32> where the Ok value is the success code returned from mpv.
-    pub fn command(&self, command: Vec<impl ToString>) -> Result<i32> {
+    pub fn command(&self, command: &[impl AsRef<str>]) -> Result<i32> {
         let mut owned_strings = Vec::with_capacity(command.len());
         for s in command {
-            owned_strings.push(CString::new(s.to_string().as_bytes())?);
+            owned_strings.push(CString::new(s.as_ref())?);
         }
 
         let mut cstrs: Vec<_> = owned_strings.iter().map(|s| s.as_ptr()).collect();
@@ -248,10 +235,10 @@ impl Handle {
     ///
     /// # Return
     /// If the function succeeds, Ok(Node) is command-specific return data. Not many commands actually use this at all.
-    pub fn command_ret(&self, command: Vec<impl ToString>) -> Result<Node> {
+    pub fn command_ret(&self, command: &[impl AsRef<str>]) -> Result<Node> {
         let mut owned_strings = Vec::with_capacity(command.len());
         for s in command {
-            owned_strings.push(CString::new(s.to_string().as_bytes())?);
+            owned_strings.push(CString::new(s.as_ref())?);
         }
 
         let mut cstrs: Vec<_> = owned_strings.iter().map(|s| s.as_ptr()).collect();
@@ -272,8 +259,8 @@ impl Handle {
     /// This is slightly simpler, but also more error prone, since arguments may need quoting/escaping.
     ///
     /// This also has OSD and string expansion enabled by default.
-    pub fn command_string(&self, command: impl ToString) -> Result<i32> {
-        let owned_string = CString::new(command.to_string().as_bytes())?;
+    pub fn command_string(&self, command: &str) -> Result<i32> {
+        let owned_string = CString::new(command)?;
 
         let err = unsafe { mpv::command_string(self.handle, owned_string.as_ptr()) };
         error_to_result(err)
@@ -292,8 +279,8 @@ impl Handle {
     /// The same happens when calling this function with `Format::Node`: the underlying format may be converted to another type if possible.
     ///
     /// Using a format other than `Format::Node` is equivalent to constructing a `Node` with the given format and data and passing it to this function.
-    pub fn set_property<T: MpvSend>(&self, name: impl ToString, value: T) -> Result<i32> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
+    pub fn set_property<T: MpvSend>(&self, name: &str, value: T) -> Result<i32> {
+        let owned_name = CString::new(name)?;
 
         value.to_mpv(|x| {
             let err = unsafe { mpv::set_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT.0, x) };
@@ -301,22 +288,11 @@ impl Handle {
         })
     }
 
-    /// Convenience function to set a property to a string value.
-    ///
-    /// This is like calling `set_property()` with MPV_FORMAT_STRING.
-    pub fn set_property_string(&self, name: impl ToString, value: impl ToString) -> Result<i32> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
-        let owned_value = CString::new(value.to_string().as_bytes())?;
-
-        let err = unsafe { mpv::set_property_string(self.handle, owned_name.as_ptr(), owned_value.as_ptr()) };
-        error_to_result(err)
-    }
-
     /// Convenience function to delete a property.
     ///
     /// This is equivalent to running the command "del \[name\]".
-    pub fn del_property(&self, name: impl ToString) -> Result<i32> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
+    pub fn del_property(&self, name: &str) -> Result<i32> {
+        let owned_name = CString::new(name)?;
 
         let err = unsafe { mpv::del_property(self.handle, owned_name.as_ptr()) };
         error_to_result(err)
@@ -327,8 +303,8 @@ impl Handle {
     /// If the format doesn't match with the internal format of the property, access usually will fail with `Error::PropertyFormat`.
     ///
     /// In some cases, the data is automatically converted and access succeeds. For example, `Format::Int64` is always converted to `Format::Double`, and access using `Format::String` usually invokes a string formatter.
-    pub fn get_property<T: MpvSend>(&self, name: impl ToString) -> Result<T> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
+    pub fn get_property<T: MpvSend>(&self, name: &str) -> Result<T> {
+        let owned_name = CString::new(name)?;
 
         unsafe {
             T::from_mpv(|x| {
@@ -336,46 +312,6 @@ impl Handle {
                 error_to_result(err)
             })
         }
-    }
-
-    /// Return the value of the property with the given name as string. This is equivalent to `get_property()` with `Format::String`.
-    ///
-    /// # Return
-    /// On error, `Error::Generic` is returned. Use `get_property()` if you want fine-grained error reporting.
-    pub fn get_property_string(&self, name: impl ToString) -> Result<String> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
-
-        let cstr = unsafe { mpv::get_property_string(self.handle, owned_name.as_ptr()) };
-
-        if cstr.is_null() {
-            return Err(Error::Generic)
-        }
-
-        let string = unsafe { CStr::from_ptr(cstr) }.to_str()?.to_string();
-
-        unsafe { mpv::free(cstr as *mut c_void) };
-
-        Ok(string)
-    }
-
-    /// Return the property as "OSD" formatted string. This is the same as `get_property_string()`, but using `Format::OsdString`.
-    ///
-    /// # Return
-    /// On error, `Error::Generic` is returned. Use `get_property()` if you want fine-grained error reporting.
-    pub fn get_property_osd_string(&self, name: impl ToString) -> Result<String> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
-
-        let cstr = unsafe { mpv::get_property_osd_string(self.handle, owned_name.as_ptr()) };
-
-        if cstr.is_null() {
-            return Err(Error::Generic)
-        }
-
-        let string = unsafe { CStr::from_ptr(cstr) }.to_str()?.to_string();
-
-        unsafe { mpv::free(cstr as *mut c_void) };
-
-        Ok(string)
     }
 
     /// Get a notification whenever the given property changes.
@@ -429,8 +365,8 @@ impl Handle {
     ///
     ///
     ///   Also see mpv_unobserve_property().
-    pub fn observe_property(&self, userdata: u64, name: impl ToString, format: Format) -> Result<i32> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
+    pub fn observe_property(&self, userdata: u64, name: &str, format: Format) -> Result<i32> {
+        let owned_name = CString::new(name)?;
 
         let err = unsafe { mpv::observe_property(self.handle, userdata, owned_name.as_ptr(), format.0) };
         error_to_result(err)
@@ -522,8 +458,8 @@ impl Handle {
     /// - `userdata`: This will be used for the `Event::Hook.userdata` field for the received `Event::Hook` events. If you have no use for this, pass 0.
     /// - `name`: The hook name. This should be one of the documented names. But if the name is unknown, the hook event will simply be never raised.
     /// - `priority`: See remarks above. Use 0 as a neutral default.
-    pub fn hook_add(&self, userdata: u64, name: String, priority: i32) -> Result<i32> {
-        let owned_name = CString::new(name.to_string().as_bytes())?;
+    pub fn hook_add(&self, userdata: u64, name: &str, priority: i32) -> Result<i32> {
+        let owned_name = CString::new(name)?;
 
         let err = unsafe { mpv::hook_add(self.handle, userdata, owned_name.as_ptr(), priority) };
         error_to_result(err)
