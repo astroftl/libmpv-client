@@ -1,9 +1,8 @@
 use std::ffi::c_void;
-use libmpv_client_sys::mpv_format;
-use crate::Result;
+use crate::{Format, Result};
 
 pub trait MpvSend: Sized {
-    const MPV_FORMAT: mpv_format;
+    const MPV_FORMAT: Format;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self;
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self>;

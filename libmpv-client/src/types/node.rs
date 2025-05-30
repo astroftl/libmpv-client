@@ -11,7 +11,7 @@
 use std::ffi::{c_void, CStr, CString, c_char};
 use std::fmt::Debug;
 use libmpv_client_sys as mpv;
-use libmpv_client_sys::{mpv_byte_array, mpv_format, mpv_format_MPV_FORMAT_BYTE_ARRAY, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
+use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_BYTE_ARRAY, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
 use crate::*;
 use crate::byte_array::MpvByteArray;
 use crate::node_array::MpvNodeArray;
@@ -62,7 +62,7 @@ impl Drop for MpvNode<'_> {
 }
 
 impl MpvSend for Node {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_NODE;
+    const MPV_FORMAT: Format = Format::NODE;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         assert!(!ptr.is_null());

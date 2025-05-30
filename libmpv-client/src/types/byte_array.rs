@@ -1,5 +1,5 @@
 use std::ffi::c_void;
-use libmpv_client_sys::{mpv_byte_array, mpv_format, mpv_format_MPV_FORMAT_BYTE_ARRAY};
+use libmpv_client_sys::mpv_byte_array;
 use crate::*;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
@@ -21,12 +21,16 @@ impl MpvRepr for MpvByteArray<'_> {
 }
 
 impl MpvSend for ByteArray {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_BYTE_ARRAY;
+    const MPV_FORMAT: Format = Format::BYTE_ARRAY;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         assert!(!ptr.is_null());
 
         let ptr = ptr as *const mpv_byte_array;
+
+        if ptr.is_null() || unsafe { (*ptr).data.is_null() } {
+            return Self::new()
+        }
 
         unsafe { std::slice::from_raw_parts((*ptr).data as *const u8, (*ptr).size) }.to_vec()
     }

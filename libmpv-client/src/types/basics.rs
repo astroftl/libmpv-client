@@ -1,6 +1,6 @@
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::ptr::null_mut;
-use libmpv_client_sys::{free, mpv_format, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_OSD_STRING, mpv_format_MPV_FORMAT_STRING};
+use libmpv_client_sys::free;
 use crate::*;
 use crate::traits::MpvSend;
 
@@ -8,7 +8,7 @@ use crate::traits::MpvSend;
 pub struct OsdString(pub String);
 
 impl MpvSend for String {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_STRING;
+    const MPV_FORMAT: Format = Format::STRING;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         let ptr = ptr as *const *const c_char;
@@ -32,7 +32,7 @@ impl MpvSend for String {
 }
 
 impl MpvSend for OsdString {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_OSD_STRING;
+    const MPV_FORMAT: Format = Format::OSD_STRING;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         OsdString(unsafe { String::from_ptr(ptr) })
@@ -48,7 +48,7 @@ impl MpvSend for OsdString {
 }
 
 impl MpvSend for bool {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_FLAG;
+    const MPV_FORMAT: Format = Format::FLAG;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         unsafe { *(ptr as *const c_int) != 0 }
@@ -66,7 +66,7 @@ impl MpvSend for bool {
 }
 
 impl MpvSend for i64 {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_INT64;
+    const MPV_FORMAT: Format = Format::INT64;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         unsafe { *(ptr as *const Self) }
@@ -83,7 +83,7 @@ impl MpvSend for i64 {
 }
 
 impl MpvSend for f64 {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_DOUBLE;
+    const MPV_FORMAT: Format = Format::DOUBLE;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         unsafe { *(ptr as *const Self) }

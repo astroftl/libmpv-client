@@ -1,6 +1,6 @@
 use std::ffi::{c_int, c_void};
 use std::ptr::null_mut;
-use libmpv_client_sys::{mpv_format, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_node, mpv_node_list};
+use libmpv_client_sys::{mpv_node, mpv_node_list};
 use crate::*;
 use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
@@ -32,7 +32,7 @@ impl MpvRepr for MpvNodeArray<'_> {
 }
 
 impl MpvSend for NodeArray {
-    const MPV_FORMAT: mpv_format = mpv_format_MPV_FORMAT_NODE_ARRAY;
+    const MPV_FORMAT: Format = Format::NODE_ARRAY;
 
     unsafe fn from_ptr(ptr: *const c_void) -> Self {
         unsafe { Self::from_node_list_ptr(ptr as *const mpv_node_list) }
@@ -84,6 +84,10 @@ impl ToMpvRepr for NodeArray {
 impl NodeArray {
     pub(crate) unsafe fn from_node_list_ptr(ptr: *const mpv_node_list) -> Self {
         assert!(!ptr.is_null());
+
+        if ptr.is_null() || unsafe { (*ptr).values.is_null() } {
+            return Self(Vec::new())
+        }
 
         let data = unsafe { std::slice::from_raw_parts((*ptr).values, (*ptr).num as usize) }
             .iter().map(|x| unsafe { Node::from_node_ptr(x) }).collect();

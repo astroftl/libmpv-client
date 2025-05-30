@@ -4,7 +4,7 @@ use std::ptr::null;
 use std::str::FromStr;
 
 use libmpv_client_sys as mpv;
-use libmpv_client_sys::{mpv_event_id, mpv_node};
+use libmpv_client_sys::mpv_node;
 use crate::*;
 use crate::error::error_to_result;
 use crate::traits::MpvSend;
@@ -172,7 +172,7 @@ impl Handle {
         let name_str = CString::new(name.to_string().as_bytes()).expect("set_option() name can't contain NULL");
 
         data.to_mpv(|x| {
-            let err = unsafe { mpv::set_option(self.handle, name_str.as_ptr(), T::MPV_FORMAT, x) };
+            let err = unsafe { mpv::set_option(self.handle, name_str.as_ptr(), T::MPV_FORMAT.0, x) };
             error_to_result(err)
         })
     }
@@ -289,7 +289,7 @@ impl Handle {
         let owned_name = CString::new(name.to_string().as_bytes()).expect("name cannot contain NULL");
 
         value.to_mpv(|x| {
-            let err = unsafe { mpv::set_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT, x) };
+            let err = unsafe { mpv::set_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT.0, x) };
             error_to_result(err)
         })
     }
@@ -325,7 +325,7 @@ impl Handle {
 
         unsafe {
             T::from_mpv(|x| {
-                let err = mpv::get_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT, x);
+                let err = mpv::get_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT.0, x);
                 error_to_result(err)
             })
         }
@@ -376,8 +376,8 @@ impl Handle {
     /// Some events are enabled by default. Some events can't be disabled.
     ///
     /// (Informational note: currently, all events are enabled by default, except MPV_EVENT_TICK.)
-    pub fn request_event(&self, event_id: mpv_event_id, enable: bool) -> Result<i32> {
-        let err = unsafe { mpv::request_event(self.handle, event_id, if enable { 1 } else { 0 }) };
+    pub fn request_event(&self, event_id: EventId, enable: bool) -> Result<i32> {
+        let err = unsafe { mpv::request_event(self.handle, event_id.0, if enable { 1 } else { 0 }) };
         error_to_result(err)
     }
 

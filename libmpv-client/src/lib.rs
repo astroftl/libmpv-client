@@ -13,7 +13,7 @@ pub mod version;
 use libmpv_client_sys as mpv;
 pub use mpv::mpv_handle;
 pub use handle::Handle;
-pub use event::Event;
+pub use event::{Event, EventId};
 pub use property::PropertyValue;
 pub use types::*;
 pub use error::{Error, Result};
