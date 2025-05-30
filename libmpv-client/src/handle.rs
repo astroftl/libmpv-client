@@ -10,15 +10,13 @@ use crate::error::error_to_result;
 use crate::traits::MpvSend;
 
 pub struct Handle {
-    handle: *mut mpv_handle,
-    destroyed: bool,
+    handle: *mut mpv_handle
 }
 
 impl Handle {
     pub fn from_ptr(handle: *mut mpv_handle) -> Self {
         Handle {
-            handle,
-            destroyed: false,
+            handle
         }
     }
 
@@ -28,9 +26,9 @@ impl Handle {
     }
 
     /// Return the name of this client handle. Every client has its own unique name, which is mostly used for user interface purposes.
-    pub fn client_name(&self) -> String {
+    pub fn client_name(&self) -> Result<String> {
         let c_str = unsafe { CStr::from_ptr(mpv::client_name(self.handle)) };
-        c_str.to_string_lossy().to_string()
+        Ok(c_str.to_str()?.to_string())
     }
 
     /// Return the ID of this client handle.
@@ -93,11 +91,9 @@ impl Handle {
     ///
     /// # Crate Note
     /// This function is guarded such that the `Handle` may only be destroyed once. `destroy()` is called automatically when the `Handle` is `Drop`'d.
-    pub fn destroy(&mut self) {
-        if !self.destroyed {
-            unsafe { mpv::destroy(self.handle) };
-            self.destroyed = true;
-        }
+    pub fn destroy(self) {
+        unsafe { mpv::destroy(self.handle) };
+        std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
     }
 
     /// Similar to `destroy()`, but brings the player and all clients down as well, and waits until all of them are destroyed. This function blocks.
@@ -108,11 +104,9 @@ impl Handle {
     ///
     /// # Crate Note
     /// This function is guarded such that the `Handle` may only be destroyed once.
-    pub fn terminate_destroy(&mut self) {
-        if !self.destroyed {
-            unsafe { mpv::terminate_destroy(self.handle) }
-            self.destroyed = true;
-        }
+    pub fn terminate_destroy(self) {
+        unsafe { mpv::terminate_destroy(self.handle) }
+        std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
     }
 
     /// Create a new client `Handle` connected to the same player core as `Self`. This context has its own event queue, its own `request_event()` state, its own `request_log_messages()` state, its own set of observed properties, and its own state for asynchronous operations. Otherwise, everything is shared.
@@ -552,8 +546,6 @@ impl Handle {
 
 impl Drop for Handle {
     fn drop(&mut self) {
-        if !self.destroyed {
-            unsafe { mpv::destroy(self.handle) };
-        }
+        unsafe { mpv::destroy(self.handle) };
     }
 }
