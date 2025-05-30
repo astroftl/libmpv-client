@@ -17,10 +17,23 @@ pub fn error_to_result(value: c_int) -> Result<i32> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct VersionError {
+    pub expected: u64,
+    pub found: u64,
+}
+
 #[derive(Debug)]
 pub enum RustError {
-    Utf8(Utf8Error),
-    Null(NulError),
+    /// Invalid UTF-8 data was encountered while parsing a C string into a Rust string.
+    InvalidUtf8(Utf8Error),
+    /// An unexpected NULL byte was found while parsing a Rust string into a C string.
+    InteriorNull(NulError),
+    VersionMisMatch(VersionError),
+    /// mpv provided us with a null or otherwise malformed pointer.
+    ///
+    /// This can happen occasionally, especially during init, and is not fatal.
+    Pointer,
 }
 
 /// List of error codes than can be returned by API functions.
@@ -76,13 +89,13 @@ pub enum Error {
 
 impl From<Utf8Error> for Error {
     fn from(value: Utf8Error) -> Self {
-        Self::Rust(RustError::Utf8(value))
+        Self::Rust(RustError::InvalidUtf8(value))
     }
 }
 
 impl From<NulError> for Error {
     fn from(value: NulError) -> Self {
-        Self::Rust(RustError::Null(value))
+        Self::Rust(RustError::InteriorNull(value))
     }
 }
 

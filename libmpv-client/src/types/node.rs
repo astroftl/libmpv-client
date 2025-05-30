@@ -14,6 +14,7 @@ use libmpv_client_sys as mpv;
 use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_BYTE_ARRAY, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
 use crate::*;
 use crate::byte_array::MpvByteArray;
+use crate::error::RustError;
 use crate::node_array::MpvNodeArray;
 use crate::node_map::MpvNodeMap;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
@@ -55,18 +56,10 @@ impl MpvRepr for MpvNode<'_> {
     }
 }
 
-impl Drop for MpvNode<'_> {
-    fn drop(&mut self) {
-        // println!("Dropping MpvNode");
-    }
-}
-
 impl MpvSend for Node {
     const MPV_FORMAT: Format = Format::NODE;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
-
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         unsafe { Self::from_node_ptr(ptr as *const mpv_node) }
     }
 
@@ -77,7 +70,7 @@ impl MpvSend for Node {
             let ret = unsafe { Self::from_node_ptr(&node) };
             unsafe { mpv::free_node_contents(&mut node) }
             ret
-        })
+        })?
     }
 
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
@@ -110,8 +103,9 @@ impl ToMpvRepr for Node {
                 }
             },
             Node::String(x) => {
+                // TODO: Remove this unwrap() by converting to_mpv_repr to return Result<>. See traits.rs.
                 repr._owned_cstring = Some(CString::new(x.as_bytes()).unwrap_or_default());
-                let cstring_ptr = repr._owned_cstring.as_ref().unwrap().as_ptr();
+                let cstring_ptr = repr._owned_cstring.as_ref().unwrap().as_ptr(); // SAFETY: We just assigned Some.
 
                 repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { string: cstring_ptr as *mut c_char },
@@ -138,8 +132,7 @@ impl ToMpvRepr for Node {
             }
             Node::Array(x) => {
                 repr._array_repr = Some(x.to_mpv_repr());
-                let mpv_ptr = repr._array_repr.as_ref().unwrap().ptr();
-                // println!("got pointer {mpv_ptr:p} for _array_repr");
+                let mpv_ptr = repr._array_repr.as_ref().unwrap().ptr(); // SAFETY: We just assigned Some.
 
                 repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { list: mpv_ptr as *mut mpv_node_list },
@@ -148,8 +141,7 @@ impl ToMpvRepr for Node {
             }
             Node::Map(x) => {
                 repr._map_repr = Some(x.to_mpv_repr());
-                let mpv_ptr = repr._map_repr.as_ref().unwrap().ptr();
-                // println!("got pointer {mpv_ptr:p} for _map_repr");
+                let mpv_ptr = repr._map_repr.as_ref().unwrap().ptr(); // SAFETY: We just assigned Some.
 
                 repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { list: mpv_ptr as *mut mpv_node_list },
@@ -158,7 +150,7 @@ impl ToMpvRepr for Node {
             }
             Node::ByteArray(x) => {
                 repr._bytes_repr = Some(x.to_mpv_repr());
-                let mpv_ptr = repr._bytes_repr.as_ref().unwrap().ptr();
+                let mpv_ptr = repr._bytes_repr.as_ref().unwrap().ptr(); // SAFETY: We just assigned Some.
 
                 repr.node = mpv_node {
                     u: mpv_node__bindgen_ty_1 { ba: mpv_ptr as *mut mpv_byte_array },
@@ -166,26 +158,28 @@ impl ToMpvRepr for Node {
                 }
             }
         };
-
-        // println!("created Node repr: {repr:#?}");
-
+        
         repr
     }
 }
 
 impl Node {
-    pub(crate) unsafe fn from_node_ptr(ptr: *const mpv_node) -> Self {
-        assert!(!ptr.is_null());
+    pub(crate) unsafe fn from_node_ptr(ptr: *const mpv_node) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        match unsafe { (*ptr).format } {
-            mpv_format_MPV_FORMAT_NONE => Node::None,
-            mpv_format_MPV_FORMAT_STRING => Node::String(unsafe { CStr::from_ptr((*ptr).u.string) }.to_string_lossy().to_string()),
-            mpv_format_MPV_FORMAT_FLAG => Node::Flag(unsafe { (*ptr).u.flag } != 0),
-            mpv_format_MPV_FORMAT_INT64 => Node::Int64(unsafe { (*ptr).u.int64 }),
-            mpv_format_MPV_FORMAT_DOUBLE => Node::Double(unsafe { (*ptr).u.double_ }),
-            mpv_format_MPV_FORMAT_NODE_ARRAY => Node::Array(unsafe { NodeArray::from_node_list_ptr((*ptr).u.list) }),
-            mpv_format_MPV_FORMAT_NODE_MAP => Node::Map(unsafe { NodeMap::from_node_list_ptr((*ptr).u.list) }),
-            mpv_format_MPV_FORMAT_BYTE_ARRAY => Node::ByteArray(unsafe { ByteArray::from_ptr((*ptr).u.ba as *const c_void ) }),
+        let node = unsafe { *ptr };
+
+        match node.format {
+            mpv_format_MPV_FORMAT_NONE => Ok(Node::None),
+            mpv_format_MPV_FORMAT_STRING => Ok(Node::String(unsafe { CStr::from_ptr(node.u.string) }.to_str()?.to_string())),
+            mpv_format_MPV_FORMAT_FLAG => Ok(Node::Flag(unsafe { node.u.flag } != 0)),
+            mpv_format_MPV_FORMAT_INT64 => Ok(Node::Int64(unsafe { node.u.int64 })),
+            mpv_format_MPV_FORMAT_DOUBLE => Ok(Node::Double(unsafe { node.u.double_ })),
+            mpv_format_MPV_FORMAT_NODE_ARRAY => Ok(Node::Array(unsafe { NodeArray::from_ptr(node.u.list as *const c_void)? })),
+            mpv_format_MPV_FORMAT_NODE_MAP => Ok(Node::Map(unsafe { NodeMap::from_ptr(node.u.list as *const c_void)? })),
+            mpv_format_MPV_FORMAT_BYTE_ARRAY => Ok(Node::ByteArray(unsafe { ByteArray::from_ptr(node.u.ba as *const c_void)? })),
             _ => unimplemented!()
         }
     }

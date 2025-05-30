@@ -2,7 +2,7 @@ use std::ffi::CStr;
 use std::os::raw::c_void;
 use libmpv_client_sys::{mpv_event, mpv_event_client_message, mpv_event_command, mpv_event_end_file, mpv_event_hook, mpv_event_id, mpv_event_id_MPV_EVENT_AUDIO_RECONFIG, mpv_event_id_MPV_EVENT_CLIENT_MESSAGE, mpv_event_id_MPV_EVENT_COMMAND_REPLY, mpv_event_id_MPV_EVENT_END_FILE, mpv_event_id_MPV_EVENT_FILE_LOADED, mpv_event_id_MPV_EVENT_GET_PROPERTY_REPLY, mpv_event_id_MPV_EVENT_HOOK, mpv_event_id_MPV_EVENT_IDLE, mpv_event_id_MPV_EVENT_LOG_MESSAGE, mpv_event_id_MPV_EVENT_NONE, mpv_event_id_MPV_EVENT_PLAYBACK_RESTART, mpv_event_id_MPV_EVENT_PROPERTY_CHANGE, mpv_event_id_MPV_EVENT_QUEUE_OVERFLOW, mpv_event_id_MPV_EVENT_SEEK, mpv_event_id_MPV_EVENT_SET_PROPERTY_REPLY, mpv_event_id_MPV_EVENT_SHUTDOWN, mpv_event_id_MPV_EVENT_START_FILE, mpv_event_id_MPV_EVENT_TICK, mpv_event_id_MPV_EVENT_VIDEO_RECONFIG, mpv_event_log_message, mpv_event_property, mpv_event_start_file};
 use crate::*;
-use crate::error::error_to_result;
+use crate::error::{error_to_result, RustError};
 
 pub struct EventId(pub(crate) mpv_event_id);
 
@@ -96,65 +96,69 @@ pub enum Event {
 }
 
 impl Event {
-    pub(crate) fn from_ptr(ptr: *const mpv_event) -> Event {
-        assert!(!ptr.is_null());
+    pub(crate) fn from_ptr(ptr: *const mpv_event) -> Result<Event> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        match unsafe { (*ptr).event_id } {
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_NONE => Event::None,
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_SHUTDOWN => Event::Shutdown,
+        let event = unsafe { *ptr };
+
+        match event.event_id {
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_NONE => Ok(Event::None),
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_SHUTDOWN => Ok(Event::Shutdown),
             libmpv_client_sys::mpv_event_id_MPV_EVENT_LOG_MESSAGE => {
-                Event::LogMessage(unsafe { LogMessage::from_ptr((*ptr).data) })
+                Ok(Event::LogMessage(unsafe { LogMessage::from_ptr(event.data)? }))
             },
             libmpv_client_sys::mpv_event_id_MPV_EVENT_GET_PROPERTY_REPLY => {
-                Event::GetPropertyReply {
-                    error: error_to_result(unsafe { (*ptr).error }),
-                    userdata: unsafe { (*ptr).reply_userdata },
-                    property: unsafe { Property::from_ptr((*ptr).data) },
-                }
+                Ok(Event::GetPropertyReply {
+                    error: error_to_result(event.error),
+                    userdata: event.reply_userdata,
+                    property: unsafe { Property::from_ptr(event.data)? },
+                })
             },
             libmpv_client_sys::mpv_event_id_MPV_EVENT_SET_PROPERTY_REPLY => {
-                Event::SetPropertyReply {
-                    error: error_to_result(unsafe { (*ptr).error }),
-                    userdata: unsafe { (*ptr).reply_userdata },
-                }
+                Ok(Event::SetPropertyReply {
+                    error: error_to_result(event.error),
+                    userdata: event.reply_userdata,
+                })
             },
             libmpv_client_sys::mpv_event_id_MPV_EVENT_COMMAND_REPLY => {
-                Event::CommandReply {
-                    error: error_to_result(unsafe { (*ptr).error }),
-                    userdata: unsafe { (*ptr).reply_userdata },
-                    command: unsafe { Command::from_ptr((*ptr).data) },
-                }
+                Ok(Event::CommandReply {
+                    error: error_to_result(event.error),
+                    userdata: event.reply_userdata,
+                    command: unsafe { Command::from_ptr(event.data)? },
+                })
             },
             libmpv_client_sys::mpv_event_id_MPV_EVENT_START_FILE => {
-                Event::StartFile(unsafe { StartFile::from_ptr((*ptr).data) })
+                Ok(Event::StartFile(unsafe { StartFile::from_ptr(event.data)? }))
             },
             libmpv_client_sys::mpv_event_id_MPV_EVENT_END_FILE => {
-                Event::EndFile(unsafe { EndFile::from_ptr((*ptr).data) })
+                Ok(Event::EndFile(unsafe { EndFile::from_ptr(event.data)? }))
             },
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_FILE_LOADED => Event::FileLoaded,
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_FILE_LOADED => Ok(Event::FileLoaded),
             #[allow(deprecated)]
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_IDLE => Event::Idle,
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_IDLE => Ok(Event::Idle),
             #[allow(deprecated)]
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_TICK => Event::Tick,
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_TICK => Ok(Event::Tick),
             libmpv_client_sys::mpv_event_id_MPV_EVENT_CLIENT_MESSAGE => {
-                Event::ClientMessage(unsafe { ClientMessage::from_ptr((*ptr).data) })
+                Ok(Event::ClientMessage(unsafe { ClientMessage::from_ptr(event.data)? }))
             },
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_VIDEO_RECONFIG => Event::VideoReconfig,
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_AUDIO_RECONFIG => Event::AudioReconfig,
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_SEEK => Event::Seek,
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_PLAYBACK_RESTART => Event::PlaybackRestart,
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_VIDEO_RECONFIG => Ok(Event::VideoReconfig),
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_AUDIO_RECONFIG => Ok(Event::AudioReconfig),
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_SEEK => Ok(Event::Seek),
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_PLAYBACK_RESTART => Ok(Event::PlaybackRestart),
             libmpv_client_sys::mpv_event_id_MPV_EVENT_PROPERTY_CHANGE => {
-                Event::PropertyChange {
-                    userdata: unsafe { (*ptr).reply_userdata },
-                    property: unsafe { Property::from_ptr((*ptr).data) },
-                }
+                Ok(Event::PropertyChange {
+                    userdata: event.reply_userdata,
+                    property: unsafe { Property::from_ptr(event.data)? },
+                })
             },
-            libmpv_client_sys::mpv_event_id_MPV_EVENT_QUEUE_OVERFLOW => Event::QueueOverflow,
+            libmpv_client_sys::mpv_event_id_MPV_EVENT_QUEUE_OVERFLOW => Ok(Event::QueueOverflow),
             libmpv_client_sys::mpv_event_id_MPV_EVENT_HOOK => {
-                Event::Hook {
-                    userdata: unsafe { (*ptr).reply_userdata },
-                    hook: unsafe { Hook::from_ptr((*ptr).data) },
-                }
+                Ok(Event::Hook {
+                    userdata: event.reply_userdata,
+                    hook: unsafe { Hook::from_ptr(event.data)? },
+                })
             },
             _ => unimplemented!(),
         }
@@ -172,15 +176,22 @@ pub struct Property {
 }
 
 impl Property {
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer));
+        }
 
-        let ptr = ptr as *const mpv_event_property;
+        let event_prop = unsafe { *(ptr as *const mpv_event_property) };
 
-        let name = unsafe { CStr::from_ptr((*ptr).name).to_string_lossy().to_string() };
-        let data = unsafe { PropertyValue::from_mpv((*ptr).format, (*ptr).data) };
+        if event_prop.name.is_null() {
+            return Err(Error::Rust(RustError::Pointer));
+        }
 
-        Self { name, data }
+        let name = unsafe { CStr::from_ptr(event_prop.name).to_str()?.to_string() };
+
+        let data = unsafe { PropertyValue::from_mpv(event_prop.format, event_prop.data)? };
+
+        Ok(Self { name, data })
     }
 }
 
@@ -214,12 +225,14 @@ pub struct LogMessage {
 }
 
 impl LogMessage {
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        let ptr = ptr as *const mpv_event_log_message;
+        let event_log_message = unsafe { *(ptr as *const mpv_event_log_message) };
 
-        let level = match unsafe { (*ptr).log_level } {
+        let level = match event_log_message.log_level {
             libmpv_client_sys::mpv_log_level_MPV_LOG_LEVEL_FATAL => LogLevel::Fatal,
             libmpv_client_sys::mpv_log_level_MPV_LOG_LEVEL_ERROR => LogLevel::Error,
             libmpv_client_sys::mpv_log_level_MPV_LOG_LEVEL_WARN => LogLevel::Warn,
@@ -230,11 +243,19 @@ impl LogMessage {
             _ => unimplemented!()
         };
 
-        let prefix = unsafe { CStr::from_ptr((*ptr).prefix) }.to_string_lossy().to_string();
+        if event_log_message.prefix.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        let text = unsafe { CStr::from_ptr((*ptr).text) }.to_string_lossy().to_string();
+        let prefix = unsafe { CStr::from_ptr(event_log_message.prefix) }.to_str()?.to_string();
 
-        Self { level, prefix, text }
+        if event_log_message.text.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        let text = unsafe { CStr::from_ptr(event_log_message.text) }.to_str()?.to_string();
+
+        Ok(Self { level, prefix, text })
     }
 }
 
@@ -243,21 +264,29 @@ impl LogMessage {
 pub struct ClientMessage(pub Vec<String>);
 
 impl ClientMessage {
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
         
-        let ptr = ptr as *const mpv_event_client_message;
+        let event_client_message = unsafe { *(ptr as *const mpv_event_client_message) };
 
-        if ptr.is_null() || unsafe { (*ptr).args.is_null() } {
-            return Self(Vec::new())
+        let mut args = Vec::with_capacity(event_client_message.num_args as usize);
+
+        if event_client_message.args.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
         }
 
-        let args = unsafe { std::slice::from_raw_parts((*ptr).args, (*ptr).num_args as usize) };
-        let args = args.into_iter()
-            .map(|arg| unsafe { CStr::from_ptr(*arg).to_string_lossy().to_string() })
-            .collect();
+        let event_args = unsafe { std::slice::from_raw_parts(event_client_message.args, event_client_message.num_args as usize) };
+        for event_arg in event_args {
+            if event_arg.is_null() {
+                return Err(Error::Rust(RustError::Pointer))
+            }
 
-        Self(args)
+            args.push(unsafe { CStr::from_ptr(*event_arg).to_str()?.to_string() });
+        }
+
+        Ok(Self(args))
     }
 }
 
@@ -268,14 +297,16 @@ pub struct StartFile {
 }
 
 impl StartFile {
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
-
-        let ptr = ptr as *const mpv_event_start_file;
-
-        Self {
-            playlist_entry_id: unsafe { (*ptr).playlist_entry_id },
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
         }
+
+        let event_start_file = unsafe { *(ptr as *const mpv_event_start_file) };
+
+        Ok(Self {
+            playlist_entry_id: event_start_file.playlist_entry_id,
+        })
     }
 }
 
@@ -320,26 +351,28 @@ pub struct EndFile {
 }
 
 impl EndFile {
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        let ptr = ptr as *const mpv_event_end_file;
+        let event_end_file = unsafe { *(ptr as *const mpv_event_end_file) };
 
-        let reason = match unsafe { (*ptr).reason } {
+        let reason = match event_end_file.reason {
             libmpv_client_sys::mpv_end_file_reason_MPV_END_FILE_REASON_EOF => EndFileReason::Eof,
             libmpv_client_sys::mpv_end_file_reason_MPV_END_FILE_REASON_STOP => EndFileReason::Stop,
             libmpv_client_sys::mpv_end_file_reason_MPV_END_FILE_REASON_QUIT => EndFileReason::Quit,
-            libmpv_client_sys::mpv_end_file_reason_MPV_END_FILE_REASON_ERROR => EndFileReason::Error(Error::from(unsafe { (*ptr).error })),
+            libmpv_client_sys::mpv_end_file_reason_MPV_END_FILE_REASON_ERROR => EndFileReason::Error(Error::from(event_end_file.error)),
             libmpv_client_sys::mpv_end_file_reason_MPV_END_FILE_REASON_REDIRECT => EndFileReason::Redirect,
             _ => unimplemented!(),
         };
 
-        Self {
+        Ok(Self {
             reason,
-            playlist_entry_id: unsafe { (*ptr).playlist_entry_id },
-            playlist_insert_id: unsafe { (*ptr).playlist_insert_id },
-            playlist_insert_num_entries: unsafe { (*ptr).playlist_insert_num_entries as i32 },
-        }
+            playlist_entry_id: event_end_file.playlist_entry_id,
+            playlist_insert_id: event_end_file.playlist_insert_id,
+            playlist_insert_num_entries: event_end_file.playlist_insert_num_entries as i32,
+        })
     }
 }
 
@@ -352,15 +385,22 @@ pub struct Hook {
 }
 
 impl Hook {
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        let ptr = ptr as *const mpv_event_hook;
+        let event_hook = unsafe { *(ptr as *const mpv_event_hook) };
 
-        let name = unsafe { CStr::from_ptr((*ptr).name) }.to_string_lossy().to_string();
-        let id = unsafe { (*ptr).id };
+        if event_hook.name.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        Self { name, id }
+        let name = unsafe { CStr::from_ptr(event_hook.name) }.to_str()?.to_string();
+
+        let id = event_hook.id;
+
+        Ok(Self { name, id })
     }
 }
 
@@ -375,13 +415,15 @@ pub struct Command {
 }
 
 impl Command {
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
 
-        let ptr = ptr as *const mpv_event_command;
+        let event_command = unsafe { *(ptr as *const mpv_event_command) };
 
-        let result = unsafe { Node::from_node_ptr(&(*ptr).result) };
+        let result = unsafe { Node::from_node_ptr(&event_command.result)? };
 
-        Self { result }
+        Ok(Self { result })
     }
 }

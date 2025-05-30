@@ -3,6 +3,7 @@ use std::ffi::{CStr, CString,c_char, c_int, c_void};
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
 use crate::*;
+use crate::error::RustError;
 use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
@@ -38,16 +39,42 @@ impl MpvRepr for MpvNodeMap<'_> {
 impl MpvSend for NodeMap {
     const MPV_FORMAT: Format = Format::NODE_MAP;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        unsafe { Self::from_node_list_ptr(ptr as *const mpv_node_list) }
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        let node_list = unsafe { *(ptr as *const mpv_node_list) };
+
+        if node_list.values.is_null() || node_list.keys.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        let mut values = Vec::with_capacity(node_list.num as usize);
+        let mut keys = Vec::with_capacity(node_list.num as usize);
+
+        let node_values = unsafe { std::slice::from_raw_parts(node_list.values, node_list.num as usize) };
+        for node_value in node_values {
+            values.push(unsafe { Node::from_node_ptr(node_value)? });
+        }
+
+        // TODO: Raise the UTF-8 error of to_str() and remove lossy
+        let node_keys = unsafe { std::slice::from_raw_parts(node_list.keys, node_list.num as usize) };
+        for node_key in node_keys {
+            keys.push(unsafe { CStr::from_ptr(*node_key) }.to_str()?.to_string());
+        }
+
+        let map = keys.into_iter().zip(values).collect();
+
+        Ok(Self(map))
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
         let mut node_list: mpv_node_list = unsafe { std::mem::zeroed() };
 
         fun(&raw mut node_list as *mut c_void).map(|_| {
-            unsafe { Self::from_node_list_ptr(&node_list) }
-        })
+            unsafe { Self::from_ptr(&raw const node_list as *const c_void) }
+        })?
     }
 
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
@@ -75,11 +102,12 @@ impl ToMpvRepr for NodeMap {
         });
 
         for (key, value) in &self.0 {
+            // TODO: Remove this unwrap() by converting to_mpv_repr to return Result<>. See traits.rs.
             repr._owned_keys.push(CString::new(key.as_bytes()).unwrap_or_default());
-            repr._flat_keys.push(repr._owned_keys.last().unwrap().as_ptr());
+            repr._flat_keys.push(repr._owned_keys.last().unwrap().as_ptr()); // SAFETY: We just inserted.
 
             repr._owned_reprs.push(value.to_mpv_repr());
-            repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node);
+            repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node); // SAFETY: We just inserted.
         }
 
         repr.node_list.values = repr._flat_reprs.as_ptr() as *mut _;
@@ -88,24 +116,5 @@ impl ToMpvRepr for NodeMap {
         // println!("created NodeMap repr: {repr:#?}");
 
         repr
-    }
-}
-
-impl NodeMap {
-    pub(crate) unsafe fn from_node_list_ptr(ptr: *const mpv_node_list) -> Self {
-        assert!(!ptr.is_null());
-
-        if ptr.is_null() || unsafe { (*ptr).values.is_null() } || unsafe { (*ptr).keys.is_null() } {
-            return Self(HashMap::new())
-        }
-
-        let values = unsafe { std::slice::from_raw_parts((*ptr).values, (*ptr).num as usize) }
-            .iter().map(|x| unsafe { Node::from_node_ptr(x) });
-
-        let keys = unsafe { std::slice::from_raw_parts((*ptr).keys, (*ptr).num as usize) }
-            .iter().map(|x| unsafe { CStr::from_ptr(*x).to_string_lossy().to_string() });
-
-        let map = keys.zip(values).collect();
-        Self(map)
     }
 }

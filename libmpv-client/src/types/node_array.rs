@@ -2,6 +2,7 @@ use std::ffi::{c_int, c_void};
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
 use crate::*;
+use crate::error::RustError;
 use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
@@ -34,16 +35,33 @@ impl MpvRepr for MpvNodeArray<'_> {
 impl MpvSend for NodeArray {
     const MPV_FORMAT: Format = Format::NODE_ARRAY;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        unsafe { Self::from_node_list_ptr(ptr as *const mpv_node_list) }
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        let node_list = unsafe { *(ptr as *const mpv_node_list) };
+
+        if node_list.values.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        let mut values = Vec::with_capacity(node_list.num as usize);
+
+        let node_values = unsafe { std::slice::from_raw_parts(node_list.values, node_list.num as usize) };
+        for node_value in node_values {
+            values.push(unsafe { Node::from_node_ptr(node_value)? });
+        }
+
+        Ok(Self(values))
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
         let mut node_list: mpv_node_list = unsafe { std::mem::zeroed() };
 
         fun(&raw mut node_list as *mut c_void).map(|_| {
-            unsafe { Self::from_node_list_ptr(&node_list) }
-        })
+            unsafe { Self::from_ptr(&raw const node_list as *const c_void) }
+        })?
     }
 
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
@@ -70,7 +88,7 @@ impl ToMpvRepr for NodeArray {
 
         for node in &self.0 {
             repr._owned_reprs.push(node.to_mpv_repr());
-            repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node);
+            repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node); // SAFETY: We just inserted.
         }
 
         repr.node_list.values = repr._flat_reprs.as_ptr() as *mut _;
@@ -78,20 +96,5 @@ impl ToMpvRepr for NodeArray {
         // println!("created NodeArray repr: {repr:#?}");
 
         repr
-    }
-}
-
-impl NodeArray {
-    pub(crate) unsafe fn from_node_list_ptr(ptr: *const mpv_node_list) -> Self {
-        assert!(!ptr.is_null());
-
-        if ptr.is_null() || unsafe { (*ptr).values.is_null() } {
-            return Self(Vec::new())
-        }
-
-        let data = unsafe { std::slice::from_raw_parts((*ptr).values, (*ptr).num as usize) }
-            .iter().map(|x| unsafe { Node::from_node_ptr(x) }).collect();
-
-        Self(data)
     }
 }

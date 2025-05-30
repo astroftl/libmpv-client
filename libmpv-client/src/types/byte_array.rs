@@ -1,6 +1,7 @@
 use std::ffi::c_void;
 use libmpv_client_sys::mpv_byte_array;
 use crate::*;
+use crate::error::RustError;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
 pub type ByteArray = Vec<u8>;
@@ -23,16 +24,18 @@ impl MpvRepr for MpvByteArray<'_> {
 impl MpvSend for ByteArray {
     const MPV_FORMAT: Format = Format::BYTE_ARRAY;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        assert!(!ptr.is_null());
-
-        let ptr = ptr as *const mpv_byte_array;
-
-        if ptr.is_null() || unsafe { (*ptr).data.is_null() } {
-            return Self::new()
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
         }
 
-        unsafe { std::slice::from_raw_parts((*ptr).data as *const u8, (*ptr).size) }.to_vec()
+        let byte_array = unsafe { *(ptr as *const mpv_byte_array) };
+
+        if byte_array.data.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        Ok(unsafe { std::slice::from_raw_parts(byte_array.data as *const u8, byte_array.size) }.to_vec())
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
@@ -40,7 +43,7 @@ impl MpvSend for ByteArray {
 
         fun(&raw mut ba as *mut c_void).map(|_| {
             unsafe { Self::from_ptr(&raw const ba as *const c_void) }
-        })
+        })?
     }
 
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {

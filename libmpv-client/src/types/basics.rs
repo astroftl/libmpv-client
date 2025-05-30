@@ -2,6 +2,7 @@ use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::ptr::null_mut;
 use libmpv_client_sys::free;
 use crate::*;
+use crate::error::RustError;
 use crate::traits::MpvSend;
 
 #[derive(Debug)]
@@ -10,32 +11,43 @@ pub struct OsdString(pub String);
 impl MpvSend for String {
     const MPV_FORMAT: Format = Format::STRING;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        let ptr = ptr as *const *const c_char;
-        unsafe { CStr::from_ptr(*ptr) }.to_string_lossy().to_string()
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        let cstr = unsafe { *(ptr as *const *const c_char) };
+
+        if cstr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+        
+        Ok(unsafe { CStr::from_ptr(cstr) }.to_str()?.to_string())
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
         let mut cstr: *mut c_char = null_mut();
+
         fun(&raw mut cstr as *mut c_void).and_then(|_| {
             let ret = unsafe { Self::from_ptr(&raw mut cstr as *const c_void) };
             unsafe { free(cstr as *mut c_void) }
             Ok(ret)
-        })
+        })?
     }
 
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let cstring = CString::new(self.as_bytes())?;
-        let ptr = cstring.as_ptr();
-        fun(&raw const ptr as *mut c_void)
+        let cstr = cstring.as_ptr();
+
+        fun(&raw const cstr as *mut c_void)
     }
 }
 
 impl MpvSend for OsdString {
     const MPV_FORMAT: Format = Format::OSD_STRING;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        OsdString(unsafe { String::from_ptr(ptr) })
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        Ok(OsdString(unsafe { String::from_ptr(ptr)? }))
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
@@ -50,8 +62,12 @@ impl MpvSend for OsdString {
 impl MpvSend for bool {
     const MPV_FORMAT: Format = Format::FLAG;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        unsafe { *(ptr as *const c_int) != 0 }
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        Ok(unsafe { *(ptr as *const c_int) != 0 })
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
@@ -68,8 +84,12 @@ impl MpvSend for bool {
 impl MpvSend for i64 {
     const MPV_FORMAT: Format = Format::INT64;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        unsafe { *(ptr as *const Self) }
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        Ok(unsafe { *(ptr as *const Self) })
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
@@ -85,8 +105,12 @@ impl MpvSend for i64 {
 impl MpvSend for f64 {
     const MPV_FORMAT: Format = Format::DOUBLE;
 
-    unsafe fn from_ptr(ptr: *const c_void) -> Self {
-        unsafe { *(ptr as *const Self) }
+    unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
+        if ptr.is_null() {
+            return Err(Error::Rust(RustError::Pointer))
+        }
+
+        Ok(unsafe { *(ptr as *const Self) })
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {

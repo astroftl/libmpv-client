@@ -22,6 +22,11 @@ impl Handle {
         }
     }
 
+    /// Return the MPV_CLIENT_API_VERSION the mpv source has been compiled with.
+    pub fn client_api_version() -> u64 {
+        unsafe { mpv::client_api_version() as u64 }
+    }
+
     /// Return the name of this client handle. Every client has its own unique name, which is mostly used for user interface purposes.
     pub fn client_name(&self) -> String {
         let c_str = unsafe { CStr::from_ptr(mpv::client_name(self.handle)) };
@@ -233,7 +238,7 @@ impl Handle {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
-        })
+        })?
     }
 
     /// This is essentially identical to `command()` but it also returns a result.
@@ -257,7 +262,7 @@ impl Handle {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
-        })
+        })?
     }
 
     /// Same as `command()`, but use input.conf parsing for splitting arguments.
@@ -413,7 +418,7 @@ impl Handle {
     /// Only one thread is allowed to call this on the same `Handle` at a time. The API won't complain if more than one thread calls this, but it will cause race conditions in the client when accessing the shared `mpv_event` struct.
     ///
     /// Note that most other API functions are not restricted by this, and no API function internally calls `wait_event()`. Additionally, concurrent calls to different `Handle`s are always safe.
-    pub fn wait_event(&self, timeout: f64) -> Event {
+    pub fn wait_event(&self, timeout: f64) -> Result<Event> {
         Event::from_ptr(unsafe { mpv::wait_event(self.handle, timeout) })
     }
 
