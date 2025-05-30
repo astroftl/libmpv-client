@@ -9,7 +9,8 @@ fn main() {
         // .dynamic_link_require_all(true)
         .default_enum_style(bindgen::EnumVariation::Consts)
         .opaque_type("mpv_handle")
-        .clang_macro_fallback();
+        .clang_macro_fallback()
+        .merge_extern_blocks(true);
 
     #[cfg(target_os = "windows")]
     {
