@@ -6,6 +6,15 @@ Currently, only [`client.h`](https://github.com/mpv-player/mpv/blob/release/0.40
 ### Windows Support
 This crate supports the `MPV_CPLUGIN_DYNAMIC_SYM` function pointers provided by mpv, allowing for working DLLs on Windows.
 
+## mpv cplugin Setup
+To use this crate for mpv cplugins (which is its intended purpose), you have to create a Rust library crate with type `cdylib`.
+
+In your Cargo.toml:
+```toml
+[lib]
+crate-type = ["cdylib"]
+```
+
 ## Example
 ```rust
 use libmpv_client::*;
