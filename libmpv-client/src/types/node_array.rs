@@ -6,8 +6,7 @@ use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
 /// Used with mpv_node only. Can usually not be used directly.
-#[derive(Debug, Clone, PartialEq)]
-pub struct NodeArray(pub Vec<Node>);
+pub type NodeArray = Vec<Node>;
 
 #[derive(Debug)]
 pub(crate) struct MpvNodeArray<'a> {
@@ -42,7 +41,7 @@ impl MpvSend for NodeArray {
             values.push(unsafe { Node::from_node_ptr(node_value)? });
         }
 
-        Ok(Self(values))
+        Ok(values)
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
@@ -66,16 +65,16 @@ impl ToMpvRepr for NodeArray {
     fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>> {
         let mut repr = Box::new(MpvNodeArray {
             _original: self,
-            _owned_reprs: Vec::with_capacity(self.0.len()),
-            _flat_reprs: Vec::with_capacity(self.0.len()),
+            _owned_reprs: Vec::with_capacity(self.len()),
+            _flat_reprs: Vec::with_capacity(self.len()),
             node_list: mpv_node_list {
-                num: self.0.len() as c_int,
+                num: self.len() as c_int,
                 values: null_mut(),
                 keys: null_mut(),
             },
         });
 
-        for node in &self.0 {
+        for node in self {
             repr._owned_reprs.push(node.to_mpv_repr());
             repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node); // SAFETY: We just inserted.
         }
