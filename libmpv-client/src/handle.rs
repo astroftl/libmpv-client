@@ -86,8 +86,10 @@ impl Handle {
     ///
     /// If the last `mpv_handle` is detached, the core player is destroyed. In addition, if there are only weak `mpv_handle`s (such as created by `Handle::create_weak_client()` or internal scripts), these `mpv_handle`s will be sent `MPV_EVENT_SHUTDOWN`. This function may block until these clients have responded to the shutdown event, and the core is finally destroyed.
     ///
-    /// # Crate Note
-    /// This function is guarded such that the `Handle` may only be destroyed once. `destroy()` is called automatically when the `Handle` is `Drop`'d.
+    /// # Warning
+    /// There is currently [a bug in mpv](https://github.com/mpv-player/mpv/issues/16409) which causes the player to crash upon receiving an `mpv_destroy()` call from a cplugin client.
+    ///
+    /// Until this is resolved, cplugins should terminate (both if they wish to end their work early, or in response to an `Event::Shutdown`) by returning from `mpv_open_cplugin()`.
     pub fn destroy(self) {
         unsafe { mpv::destroy(self.handle) };
         std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
@@ -99,8 +101,12 @@ impl Handle {
     ///
     /// Since `mpv_destroy()` is called somewhere on the way, it's not safe to call other functions concurrently on the same context.
     ///
-    /// # Crate Note
-    /// This function is guarded such that the `Handle` may only be destroyed once.
+    /// # Warning
+    /// There is currently [a bug in mpv](https://github.com/mpv-player/mpv/issues/16409) which causes the player to crash upon receiving an `mpv_destroy()` call from a cplugin client.
+    ///
+    /// Until this is resolved, cplugins should terminate (both if they wish to end their work early, or in response to an `Event::Shutdown`) by returning from `mpv_open_cplugin()`.
+    ///
+    /// If you wish to terminate mpv along with you, send `client.command(&["quit"])` prior to returning from `mpv_open_cplugin()`.
     pub fn terminate_destroy(self) {
         unsafe { mpv::terminate_destroy(self.handle) }
         std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
@@ -470,6 +476,7 @@ impl Handle {
 
 impl Drop for Handle {
     fn drop(&mut self) {
-        unsafe { mpv::destroy(self.handle) };
+        // This should not currently be called. See the Warning on `Handle::destroy()`.
+        // unsafe { mpv::destroy(self.handle) };
     }
 }
