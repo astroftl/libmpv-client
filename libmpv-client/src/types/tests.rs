@@ -387,28 +387,28 @@ fn node_complex_from_mpv() {
         })
     }.unwrap();
 
-    let test_map = Node::Map(NodeMap(HashMap::from([
+    let test_map = Node::Map(HashMap::from([
         ("none".to_string(), Node::None),
         ("string".to_string(), Node::String("hello, world!".to_string())),
         ("flag".to_string(), Node::Flag(true)),
         ("int64".to_string(), Node::Int64(123456)),
         ("double".to_string(), Node::Double(456.789)),
-        ("array".to_string(), Node::Array(NodeArray(vec![
+        ("array".to_string(), Node::Array(vec![
             Node::None,
             Node::Flag(true),
             Node::Int64(2),
             Node::Double(3.3),
-            Node::Map(NodeMap(HashMap::from([
+            Node::Map(HashMap::from([
                 ("4".to_string(), Node::String("five".to_string())),
                 ("six".to_string(), Node::Int64(7)),
-            ])))
-        ])))
-    ])));
+            ]))
+        ]))
+    ]));
 
-    let test_node = Node::Array(NodeArray(vec![
+    let test_node = Node::Array(vec![
         test_map.clone(),
         test_map,
-    ]));
+    ]);
 
     assert_eq!(node, test_node);
 }
@@ -417,28 +417,28 @@ fn node_complex_from_mpv() {
 fn node_complex_to_mpv() {
     setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
-    let test_map = Node::Map(NodeMap(HashMap::from([
+    let test_map = Node::Map(HashMap::from([
         ("none".to_string(), Node::None),
         ("string".to_string(), Node::String("hello, world!".to_string())),
         ("flag".to_string(), Node::Flag(true)),
         ("int64".to_string(), Node::Int64(123456)),
         ("double".to_string(), Node::Double(456.789)),
-        ("array".to_string(), Node::Array(NodeArray(vec![
+        ("array".to_string(), Node::Array(vec![
             Node::None,
             Node::Flag(true),
             Node::Int64(2),
             Node::Double(3.3),
-            Node::Map(NodeMap(HashMap::from([
+            Node::Map(HashMap::from([
                 ("4".to_string(), Node::String("five".to_string())),
                 ("six".to_string(), Node::Int64(7)),
-            ])))
-        ])))
-    ])));
+            ]))
+        ]))
+    ]));
 
-    let test_node = Node::Array(NodeArray(vec![
+    let test_node = Node::Array(vec![
         test_map.clone(),
         test_map,
-    ]));
+    ]);
 
     println!("{:?}", test_node);
 
@@ -613,7 +613,7 @@ fn nodemap_from_mpv() {
         ("fourth".to_string(), Node::Double(456.789)),
     ]);
 
-    assert_eq!(nodemap, NodeMap(map));
+    assert_eq!(nodemap, map);
 }
 
 #[test]
@@ -627,7 +627,7 @@ fn nodemap_to_mpv() {
         ("fourth".to_string(), Node::Double(456.789)),
     ]);
 
-    let nodemap = NodeMap(map);
+    let nodemap = map;
 
     nodemap.to_mpv(|x| {
         let cnodelist = unsafe { *(x as *const mpv_node_list) };
@@ -712,24 +712,24 @@ fn nodearray_from_mpv() {
         Ok(0)
     }) }.unwrap();
 
-    assert_eq!(nodearray, NodeArray(vec![
+    assert_eq!(nodearray, vec![
         Node::String(String::from("hello, world!")),
         Node::Flag(true),
         Node::Int64(123456),
         Node::Double(456.789)
-    ]));
+    ]);
 }
 
 #[test]
 fn nodearray_to_mpv() {
     setup_mpv_stubs(mpv_free_stub, mpv_free_node_contents_stub);
 
-    let nodearray = NodeArray(vec![
+    let nodearray = vec![
         Node::String(String::from("hello, world!")),
         Node::Flag(true),
         Node::Int64(123456),
         Node::Double(456.789)
-    ]);
+    ];
 
     nodearray.to_mpv(|x| {
         let cnodelist = unsafe { *(x as *const mpv_node_list) };

@@ -7,8 +7,7 @@ use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
 /// Used with mpv_node only. Can usually not be used directly.
-#[derive(Debug, Clone, PartialEq)]
-pub struct NodeMap(pub HashMap<String, Node>);
+pub type NodeMap = HashMap<String, Node>;
 
 #[derive(Debug)]
 pub(crate) struct MpvNodeMap<'a> {
@@ -57,7 +56,7 @@ impl MpvSend for NodeMap {
 
         let map = keys.into_iter().zip(values).collect();
 
-        Ok(Self(map))
+        Ok(map)
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
@@ -81,18 +80,18 @@ impl ToMpvRepr for NodeMap {
     fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>> {
         let mut repr = Box::new(MpvNodeMap {
             _original: self,
-            _owned_reprs: Vec::with_capacity(self.0.len()),
-            _flat_reprs: Vec::with_capacity(self.0.len()),
-            _owned_keys: Vec::with_capacity(self.0.len()),
-            _flat_keys: Vec::with_capacity(self.0.len()),
+            _owned_reprs: Vec::with_capacity(self.len()),
+            _flat_reprs: Vec::with_capacity(self.len()),
+            _owned_keys: Vec::with_capacity(self.len()),
+            _flat_keys: Vec::with_capacity(self.len()),
             node_list: mpv_node_list {
-                num: self.0.len() as c_int,
+                num: self.len() as c_int,
                 values: null_mut(),
                 keys: null_mut(),
             },
         });
 
-        for (key, value) in &self.0 {
+        for (key, value) in self {
             // TODO: Remove this unwrap() by converting to_mpv_repr to return Result<>. See traits.rs.
             repr._owned_keys.push(CString::new(key.as_bytes()).unwrap_or_default());
             repr._flat_keys.push(repr._owned_keys.last().unwrap().as_ptr()); // SAFETY: We just inserted.
