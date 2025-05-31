@@ -261,9 +261,11 @@ pub use mpv_stubs::setup_mpv_stubs;
 mod mpv_stubs {
     use std::ffi::c_void;
     use crate::mpv_node;
+    #[cfg(feature = "dyn-sym")]
     use crate::mpv_pfns::{pfn_mpv_free, pfn_mpv_free_node_contents};
-
+    
     pub fn setup_mpv_stubs(free: extern "C" fn(data: *mut c_void), free_node_contents: extern "C" fn(node: *mut mpv_node)) {
+        #[cfg(feature = "dyn-sym")]
         unsafe {
             pfn_mpv_free = Some(free);
             pfn_mpv_free_node_contents = Some(free_node_contents)
