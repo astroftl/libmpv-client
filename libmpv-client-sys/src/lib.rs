@@ -39,7 +39,7 @@ macro_rules! mpv_functions {
         $(#[doc = $doc:expr])*
         $rust_name:ident($($param:ident: $param_type:ty),*$(,)?)$( -> $ret_type:ty)?
     );*$(;)?) => {
-        #[cfg(windows)]
+        #[cfg(feature = "dyn-sym")]
         mod mpv_function_pointers {
             use super::*;
 
@@ -55,9 +55,9 @@ macro_rules! mpv_functions {
             paste! {
                 $(#[doc = $doc])*
                 pub unsafe fn $rust_name($($param: $param_type),*)$( -> $ret_type)? {
-                    #[cfg(windows)]
+                    #[cfg(feature = "dyn-sym")]
                     unsafe { [<pfn_mpv_ $rust_name>].expect("mpv function pointers not populated")($($param),*) }
-                    #[cfg(not(windows))]
+                    #[cfg(not(feature = "dyn-sym"))]
                     unsafe { [<mpv_ $rust_name>]($($param),*) }
                 }
             }
@@ -263,7 +263,7 @@ mod mpv_stubs {
     use crate::mpv_node;
     #[cfg(feature = "dyn-sym")]
     use crate::mpv_pfns::{pfn_mpv_free, pfn_mpv_free_node_contents};
-    
+
     pub fn setup_mpv_stubs(free: extern "C" fn(data: *mut c_void), free_node_contents: extern "C" fn(node: *mut mpv_node)) {
         #[cfg(feature = "dyn-sym")]
         unsafe {
