@@ -207,11 +207,11 @@ impl Handle {
         command.to_mpv(|x| {
             let err = unsafe { mpv::command_node(self.handle, x as *mut mpv_node, return_mpv_node.as_ptr() as *mut mpv_node) };
             error_to_result_code(err)
-        }).map(|_| {
+        }).and_then(|_| {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
-        })?
+        })
     }
 
     /// This is essentially identical to `command()` but it also returns a result.
@@ -235,11 +235,11 @@ impl Handle {
         let mut return_mpv_node = MaybeUninit::uninit();
 
         let err = unsafe { mpv::command_ret(self.handle, cstrs.as_mut_ptr(), return_mpv_node.as_mut_ptr()) };
-        error_to_result_code(err).map(|_| {
+        error_to_result_code(err).and_then(|_| {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
-        })?
+        })
     }
 
     /// Same as `command()`, but use input.conf parsing for splitting arguments.
