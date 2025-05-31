@@ -264,6 +264,7 @@ mod mpv_stubs {
     #[cfg(feature = "dyn-sym")]
     use crate::mpv_pfns::{pfn_mpv_free, pfn_mpv_free_node_contents};
 
+    #[allow(unused_variables)]
     pub fn setup_mpv_stubs(free: extern "C" fn(data: *mut c_void), free_node_contents: extern "C" fn(node: *mut mpv_node)) {
         #[cfg(feature = "dyn-sym")]
         unsafe {
