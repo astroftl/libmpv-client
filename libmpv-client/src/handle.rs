@@ -6,7 +6,7 @@ use std::str::FromStr;
 use libmpv_client_sys as mpv;
 use libmpv_client_sys::mpv_node;
 use crate::*;
-use crate::error::error_to_result;
+use crate::error::{error_to_result, error_to_result_code};
 use crate::traits::MpvSend;
 
 pub struct Handle {
@@ -77,10 +77,7 @@ impl Handle {
     ///   - player-operation-mode
     ///   - input-app-events (macOS)
     /// - all encoding mode options
-    ///
-    /// # Return
-    /// A `Result<i32> where the Ok value is the success code returned from mpv.
-    pub fn initialize(&self) -> Result<i32> {
+    pub fn initialize(&self) -> Result<()> {
         let err = unsafe { mpv::initialize(self.handle) };
         error_to_result(err)
     }
@@ -134,10 +131,7 @@ impl Handle {
     /// The filename should be an absolute path. If it isn't, the actual path used is unspecified. (Note: an absolute path starts with '/' on UNIX.) If the file wasn't found, `Error::InvalidParameter` is returned.
     ///
     /// If a fatal error happens when parsing a config file, `Error::OptionError` is returned. Errors when setting options as well as other types or errors are ignored (even if options do not exist). You can still try to capture the resulting error messages with `request_log_messages()`. Note that it's possible that some options were successfully set even if any of these errors happen.
-    ///
-    /// # Return
-    /// A `Result<i32> where the Ok value is the success code returned from mpv.
-    pub fn load_config_file(&self, filename: &str) -> Result<i32> {
+    pub fn load_config_file(&self, filename: &str) -> Result<()> {
         let filename_str = CString::new(filename)?;
 
         let err = unsafe { mpv::load_config_file(self.handle, filename_str.as_ptr()) };
@@ -163,17 +157,14 @@ impl Handle {
     /// Set an option. Note that you can't normally set options during runtime. It works in uninitialized state (see `create()`), and in some cases in at runtime.
     ///
     /// Using a format other than `Format::Node` is equivalent to constructing a `Node` with the given format and data, and passing the `Node` to this function.
-    ///
-    /// # Return
-    /// A `Result<i32> where the Ok value is the success code returned from mpv.
     #[deprecated = "For most purposes, this is not needed anymore. Starting with mpv version 0.21.0 (version 1.23) most options can be set with mpv_set_property() (and related functions), and even before mpv_initialize(). In some obscure corner cases, using this function to set options might still be required (see \"Inconsistencies between options and properties\" in the manpage). Once these are resolved, the option setting functions might be fully deprecated."]
-    pub fn set_option<T: MpvSend>(&self, name: &str, data: T) -> Result<i32> {
+    pub fn set_option<T: MpvSend>(&self, name: &str, data: T) -> Result<()> {
         let name_str = CString::new(name)?;
 
         data.to_mpv(|x| {
             let err = unsafe { mpv::set_option(self.handle, name_str.as_ptr(), T::MPV_FORMAT.0, x) };
-            error_to_result(err)
-        })
+            error_to_result_code(err)
+        }).map(|_| ())
     }
 
     /// Send a command to the player. Commands are the same as those used in input.conf, except that this function takes parameters in a pre-split form.
@@ -184,10 +175,7 @@ impl Handle {
     ///
     /// # Params
     /// - `command` - Usually, the first item is the command, and the following items are arguments.
-    ///
-    /// # Return
-    /// A `Result<i32> where the Ok value is the success code returned from mpv.
-    pub fn command(&self, command: &[impl AsRef<str>]) -> Result<i32> {
+    pub fn command(&self, command: &[impl AsRef<str>]) -> Result<()> {
         let mut owned_strings = Vec::with_capacity(command.len());
         for s in command {
             owned_strings.push(CString::new(s.as_ref())?);
@@ -218,7 +206,7 @@ impl Handle {
         
         command.to_mpv(|x| {
             let err = unsafe { mpv::command_node(self.handle, x as *mut mpv_node, return_mpv_node.as_ptr() as *mut mpv_node) };
-            error_to_result(err)
+            error_to_result_code(err)
         }).map(|_| {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
@@ -247,7 +235,7 @@ impl Handle {
         let mut return_mpv_node = MaybeUninit::uninit();
 
         let err = unsafe { mpv::command_ret(self.handle, cstrs.as_mut_ptr(), return_mpv_node.as_mut_ptr()) };
-        error_to_result(err).map(|_| {
+        error_to_result_code(err).map(|_| {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
             unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
@@ -259,7 +247,7 @@ impl Handle {
     /// This is slightly simpler, but also more error prone, since arguments may need quoting/escaping.
     ///
     /// This also has OSD and string expansion enabled by default.
-    pub fn command_string(&self, command: &str) -> Result<i32> {
+    pub fn command_string(&self, command: &str) -> Result<()> {
         let owned_string = CString::new(command)?;
 
         let err = unsafe { mpv::command_string(self.handle, owned_string.as_ptr()) };
@@ -279,19 +267,19 @@ impl Handle {
     /// The same happens when calling this function with `Format::Node`: the underlying format may be converted to another type if possible.
     ///
     /// Using a format other than `Format::Node` is equivalent to constructing a `Node` with the given format and data and passing it to this function.
-    pub fn set_property<T: MpvSend>(&self, name: &str, value: T) -> Result<i32> {
+    pub fn set_property<T: MpvSend>(&self, name: &str, value: T) -> Result<()> {
         let owned_name = CString::new(name)?;
 
         value.to_mpv(|x| {
             let err = unsafe { mpv::set_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT.0, x) };
-            error_to_result(err)
-        })
+            error_to_result_code(err)
+        }).map(|_| ())
     }
 
     /// Convenience function to delete a property.
     ///
     /// This is equivalent to running the command "del \[name\]".
-    pub fn del_property(&self, name: &str) -> Result<i32> {
+    pub fn del_property(&self, name: &str) -> Result<()> {
         let owned_name = CString::new(name)?;
 
         let err = unsafe { mpv::del_property(self.handle, owned_name.as_ptr()) };
@@ -309,7 +297,7 @@ impl Handle {
         unsafe {
             T::from_mpv(|x| {
                 let err = mpv::get_property(self.handle, owned_name.as_ptr(), T::MPV_FORMAT.0, x);
-                error_to_result(err)
+                error_to_result_code(err)
             })
         }
     }
@@ -365,7 +353,7 @@ impl Handle {
     ///
     ///
     ///   Also see mpv_unobserve_property().
-    pub fn observe_property(&self, userdata: u64, name: &str, format: Format) -> Result<i32> {
+    pub fn observe_property(&self, userdata: u64, name: &str, format: Format) -> Result<()> {
         let owned_name = CString::new(name)?;
 
         let err = unsafe { mpv::observe_property(self.handle, userdata, owned_name.as_ptr(), format.0) };
@@ -381,10 +369,10 @@ impl Handle {
     /// - `userdata`: `userdata` that was passed to mpv_observe_property
     ///
     /// # Returns
-    /// `Result::Ok(i32)` contains the number of properties removed on success.
+    /// `Result` is an `Ok(i32)` that contains the number of properties removed on success.
     pub fn unobserve_property(&self, userdata: u64) -> Result<i32> {
         let err = unsafe { mpv::unobserve_property(self.handle, userdata) };
-        error_to_result(err)
+        error_to_result_code(err)
     }
 
     /// Enable or disable the given event.
@@ -392,7 +380,7 @@ impl Handle {
     /// Some events are enabled by default. Some events can't be disabled.
     ///
     /// (Informational note: currently, all events are enabled by default, except MPV_EVENT_TICK.)
-    pub fn request_event(&self, event_id: EventId, enable: bool) -> Result<i32> {
+    pub fn request_event(&self, event_id: EventId, enable: bool) -> Result<()> {
         let err = unsafe { mpv::request_event(self.handle, event_id.0, if enable { 1 } else { 0 }) };
         error_to_result(err)
     }
@@ -406,7 +394,7 @@ impl Handle {
     ///   The value "no" disables all messages. This is the default.
     ///
     /// TODO: Make this accept Rusty LogLevels.
-    pub fn request_log_messages(&self, min_level: &str) -> Result<i32> {
+    pub fn request_log_messages(&self, min_level: &str) -> Result<()> {
         let cstr = CString::from_str(min_level)?;
 
         let err = unsafe { mpv::request_log_messages(self.handle, cstr.as_ptr()) };
@@ -458,7 +446,7 @@ impl Handle {
     /// - `userdata`: This will be used for the `Event::Hook.userdata` field for the received `Event::Hook` events. If you have no use for this, pass 0.
     /// - `name`: The hook name. This should be one of the documented names. But if the name is unknown, the hook event will simply be never raised.
     /// - `priority`: See remarks above. Use 0 as a neutral default.
-    pub fn hook_add(&self, userdata: u64, name: &str, priority: i32) -> Result<i32> {
+    pub fn hook_add(&self, userdata: u64, name: &str, priority: i32) -> Result<()> {
         let owned_name = CString::new(name)?;
 
         let err = unsafe { mpv::hook_add(self.handle, userdata, owned_name.as_ptr(), priority) };
@@ -474,7 +462,7 @@ impl Handle {
     ///
     /// # Warning
     /// It is explicitly undefined behavior to call this more than once for each `Event::Hook`, to pass an incorrect ID, or to call this on a `Handle` different from the one that registered the handler and received the event.
-    pub fn hook_continue(&self, id: u64) -> Result<i32> {
+    pub fn hook_continue(&self, id: u64) -> Result<()> {
         let err = unsafe { mpv::hook_continue(self.handle, id) };
         error_to_result(err)
     }

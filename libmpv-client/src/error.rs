@@ -8,10 +8,19 @@ use libmpv_client_sys::error_string;
 /// Many mpv API functions returning error codes can also return positive values, which also indicate success. These values are exposed via the `Ok(i32)`.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Interpret an error code from an mpv API function into a `Result`, retaining the success code.
-pub(crate) fn error_to_result(value: c_int) -> Result<i32> {
+/// Interpret an error code from an mpv API function into a `Result`, discarding the success code.
+pub(crate) fn error_to_result_code(value: c_int) -> Result<i32> {
     if value >= 0 {
         Ok(value as i32)
+    } else {
+        Err(Error::from(value))
+    }
+}
+
+/// Interpret an error code from an mpv API function into a `Result`, retaining the success code.
+pub(crate) fn error_to_result(value: c_int) -> Result<()> {
+    if value >= 0 {
+        Ok(())
     } else {
         Err(Error::from(value))
     }
