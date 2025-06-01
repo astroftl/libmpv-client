@@ -93,11 +93,13 @@ impl ToMpvRepr for NodeMap {
 
         for (key, value) in self {
             // TODO: Remove this unwrap() by converting to_mpv_repr to return Result<>. See traits.rs.
-            repr._owned_keys.push(CString::new(key.as_bytes()).unwrap_or_default());
-            repr._flat_keys.push(repr._owned_keys.last().unwrap().as_ptr()); // SAFETY: We just inserted.
+            let cstring = CString::new(key.as_bytes()).unwrap_or_default();
+            repr._flat_keys.push(cstring.as_ptr());
+            repr._owned_keys.push(cstring);
 
-            repr._owned_reprs.push(value.to_mpv_repr());
-            repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node); // SAFETY: We just inserted.
+            let val_repr = value.to_mpv_repr();
+            repr._flat_reprs.push(val_repr.node);
+            repr._owned_reprs.push(val_repr);
         }
 
         repr.node_list.values = repr._flat_reprs.as_ptr() as *mut _;

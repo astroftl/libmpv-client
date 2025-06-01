@@ -446,7 +446,7 @@ impl EndFile {
             reason,
             playlist_entry_id: event_end_file.playlist_entry_id,
             playlist_insert_id: event_end_file.playlist_insert_id,
-            playlist_insert_num_entries: event_end_file.playlist_insert_num_entries as i32,
+            playlist_insert_num_entries: event_end_file.playlist_insert_num_entries,
         })
     }
 }

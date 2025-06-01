@@ -75,8 +75,9 @@ impl ToMpvRepr for NodeArray {
         });
 
         for node in self {
-            repr._owned_reprs.push(node.to_mpv_repr());
-            repr._flat_reprs.push(repr._owned_reprs.last().unwrap().node); // SAFETY: We just inserted.
+            let node_repr = node.to_mpv_repr();
+            repr._flat_reprs.push(node_repr.node);
+            repr._owned_reprs.push(node_repr);
         }
 
         repr.node_list.values = repr._flat_reprs.as_ptr() as *mut _;

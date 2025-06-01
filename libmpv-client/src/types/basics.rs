@@ -32,8 +32,8 @@ impl MpvSend for String {
         fun(&raw mut cstr as *mut c_void).and_then(|_| {
             let ret = unsafe { Self::from_ptr(&raw mut cstr as *const c_void) };
             unsafe { free(cstr as *mut c_void) }
-            Ok(ret)
-        })?
+            ret
+        })
     }
 
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
@@ -52,7 +52,7 @@ impl MpvSend for OsdString {
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
-        unsafe { String::from_mpv(fun) }.map(|s| Self(s))
+        unsafe { String::from_mpv(fun) }.map(Self)
     }
 
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {

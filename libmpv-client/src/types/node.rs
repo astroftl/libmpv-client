@@ -79,9 +79,7 @@ impl MpvSend for Node {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let repr = self.to_mpv_repr();
 
-        let ret = fun(repr.ptr() as *mut c_void);
-        
-        ret
+        fun(repr.ptr() as *mut c_void)
     }
 }
 

@@ -49,7 +49,7 @@ fn flag_true_from_mpv() {
         Ok(0)
     }) };
 
-    assert_eq!(flag.unwrap(), true);
+    assert!(flag.unwrap());
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn flag_false_from_mpv() {
         Ok(0)
     }) };
 
-    assert_eq!(flag.unwrap(), false);
+    assert!(!flag.unwrap());
 }
 
 #[test]
@@ -431,7 +431,7 @@ fn node_complex_to_mpv() {
         test_map,
     ]);
 
-    println!("{:?}", test_node);
+    println!("{test_node:?}");
 
     test_node.to_mpv(|x| {
         let root_node = unsafe { *(x as *const mpv_node) };

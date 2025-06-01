@@ -75,13 +75,13 @@ impl Handle {
     ///
     /// Unlike the command line player, this will have initial settings suitable for embedding in applications. The following settings are different:
     /// - `stdin`/`stdout`/`stderr` and the terminal will never be accessed.
-    /// This is equivalent to setting the [`--terminal=no`](https://mpv.io/manual/stable/#options-terminal) option. (Technically, this also suppresses C signal handling.)
+    ///   This is equivalent to setting the [`--terminal=no`](https://mpv.io/manual/stable/#options-terminal) option. (Technically, this also suppresses C signal handling.)
     /// - No config files will be loaded. This is roughly equivalent to using [`--no-config`](https://mpv.io/manual/stable/#options-no-config).
-    /// Since libmpv 1.15, you can actually re-enable this option, which will make libmpv load config files during [`Handle::initialize()`].
-    /// If you do this, you are strongly encouraged to set the [`config-dir`](https://mpv.io/manual/stable/#options-config-dir) option too.
-    /// (Otherwise it will load the mpv command line player's config.)
+    ///   Since libmpv 1.15, you can actually re-enable this option, which will make libmpv load config files during [`Handle::initialize()`].
+    ///   If you do this, you are strongly encouraged to set the [`config-dir`](https://mpv.io/manual/stable/#options-config-dir) option too.
+    ///   (Otherwise it will load the mpv command line player's config.)
     /// - Idle mode is enabled, which means the playback core will enter idle mode if there are no more files to play on the internal playlist, instead of exiting.
-    /// This is equivalent to the [`--idle`](https://mpv.io/manual/stable/#options-idle) option.
+    ///   This is equivalent to the [`--idle`](https://mpv.io/manual/stable/#options-idle) option.
     /// - Disable parts of input handling.
     /// - Most of the different settings can be viewed with the command line player by running `mpv --show-profile=libmpv`.
     ///
@@ -294,11 +294,11 @@ impl Handle {
     /// # Params
     /// The `command` [`Node`] can be one of the following formats:
     /// - [`Node::Array`]: Positional arguments. Each entry is an argument using an arbitrary format (the format must be compatible with the used command).
-    /// Usually, the first item is the command name (as a [`Node::String`]). The order of arguments is as documented in each command description.
+    ///   Usually, the first item is the command name (as a [`Node::String`]). The order of arguments is as documented in each command description.
     /// - [`Node::Map`]: Named arguments. This requires at least an entry with the key "name" to be present, which must be a string and contain the command name.
-    /// The special entry "_flags" is optional, and if present, must be an array of strings, each being a command prefix to apply.
-    /// All other entries are interpreted as arguments.
-    /// They must use the argument names as documented in each command description. Some commands do not support named arguments at all and must use [`Node::Array`].
+    ///   The special entry "_flags" is optional, and if present, must be an array of strings, each being a command prefix to apply.
+    ///   All other entries are interpreted as arguments.
+    ///   They must use the argument names as documented in each command description. Some commands do not support named arguments at all and must use [`Node::Array`].
     ///
     /// # Return
     /// If the function succeeds, [`Result<Node>`] is command-specific return data. Few commands actually use this.
@@ -612,9 +612,9 @@ impl Handle {
     ///
     /// # Params
     /// - `userdata`: This will be used for the [`Event::Hook.userdata`](field@event::Hook::userdata) field for the received [`Event::Hook`] events.
-    /// If you have no use for this, pass 0.
+    ///   If you have no use for this, pass 0.
     /// - `name`: The hook name. This should be [one of the documented names](https://mpv.io/manual/stable/#hooks).
-    /// But if the name is unknown, the hook event will simply never be raised.
+    ///   But if the name is unknown, the hook event will simply never be raised.
     /// - `priority`: See remarks above. Use 0 as a neutral default.
     pub fn hook_add(&self, userdata: u64, name: &str, priority: i32) -> Result<()> {
         let owned_name = CString::new(name)?;

@@ -14,7 +14,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Interpret an error code from an mpv API function into a `Result`, discarding the success code.
 pub(crate) fn error_to_result_code(value: c_int) -> Result<i32> {
     if value >= 0 {
-        Ok(value as i32)
+        Ok(value)
     } else {
         Err(Error::from(value))
     }
@@ -132,7 +132,7 @@ impl From<NulError> for Error {
 impl From<c_int> for Error {
     fn from(value: c_int) -> Self {
         match value {
-            value @ 0.. => Error::Success(value as i32),
+            value @ 0.. => Error::Success(value),
             libmpv_client_sys::mpv_error_MPV_ERROR_EVENT_QUEUE_FULL => Error::EventQueueFull,
             libmpv_client_sys::mpv_error_MPV_ERROR_NOMEM => Error::NoMemory,
             libmpv_client_sys::mpv_error_MPV_ERROR_UNINITIALIZED => Error::Uninitialized,
