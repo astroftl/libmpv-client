@@ -1,15 +1,20 @@
 use std::ffi::c_void;
 use crate::{Format, Result};
 
-pub trait MpvSend: Sized {
+pub trait MpvFormat: Sized {
     const MPV_FORMAT: Format;
+}
 
+pub trait MpvSend: MpvFormat {
+    fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32>;
+}
+
+pub trait MpvRecv: MpvFormat {
     // TODO: Reevaluate whether functions which are now properly guarded need to be marked themselves unsafe.
     // I think they probably do, since they still rely on the pointer being to a valid data structure, which cannot be checked at runtime.
     // During my documentation overhaul I will clearly document this contract.
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self>;
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self>;
-    fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32>;
 }
 
 pub(crate) trait ToMpvRepr: MpvSend {

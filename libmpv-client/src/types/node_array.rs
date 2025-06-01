@@ -3,7 +3,7 @@ use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
 use crate::*;
 use crate::node::MpvNode;
-use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
+use crate::traits::{MpvFormat, MpvRecv, MpvRepr, MpvSend, ToMpvRepr};
 
 /// A [`Vec<Node>`], used only within a [`Node`], and only in specific situations.
 pub type NodeArray = Vec<Node>;
@@ -26,9 +26,11 @@ impl MpvRepr for MpvNodeArray<'_> {
     }
 }
 
-impl MpvSend for NodeArray {
+impl MpvFormat for NodeArray {
     const MPV_FORMAT: Format = Format::NODE_ARRAY;
+}
 
+impl MpvRecv for NodeArray {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         check_null!(ptr);
         let node_list = unsafe { *(ptr as *const mpv_node_list) };
@@ -51,7 +53,9 @@ impl MpvSend for NodeArray {
             unsafe { Self::from_ptr(&raw const node_list as *const c_void) }
         })?
     }
+}
 
+impl MpvSend for NodeArray {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let repr = self.to_mpv_repr();
 

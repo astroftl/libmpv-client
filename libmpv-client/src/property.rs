@@ -1,7 +1,7 @@
 use std::os::raw::c_void;
 use libmpv_client_sys::mpv_format;
 use crate::*;
-use crate::traits::MpvSend;
+use crate::traits::MpvRecv;
 
 #[derive(Debug)]
 /// An enum of the possible values returned in a [`GetPropertyReply`](event::GetPropertyReply) or a [`PropertyChange`](event::PropertyChange).

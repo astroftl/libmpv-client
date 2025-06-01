@@ -16,7 +16,7 @@ use crate::*;
 use crate::byte_array::MpvByteArray;
 use crate::node_array::MpvNodeArray;
 use crate::node_map::MpvNodeMap;
-use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
+use crate::traits::{MpvFormat, MpvRecv, MpvRepr, MpvSend, ToMpvRepr};
 
 /// Generic data storage for various mpv argument types and responses.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,9 +59,11 @@ impl MpvRepr for MpvNode<'_> {
     }
 }
 
-impl MpvSend for Node {
+impl MpvFormat for Node {
     const MPV_FORMAT: Format = Format::NODE;
+}
 
+impl MpvRecv for Node {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         unsafe { Self::from_node_ptr(ptr as *const mpv_node) }
     }
@@ -75,7 +77,9 @@ impl MpvSend for Node {
             ret
         })?
     }
+}
 
+impl MpvSend for Node {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let repr = self.to_mpv_repr();
 

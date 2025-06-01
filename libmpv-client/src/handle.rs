@@ -7,7 +7,7 @@ use libmpv_client_sys::mpv_node;
 use crate::*;
 use crate::error::{error_to_result, error_to_result_code};
 use crate::event::LogLevel;
-use crate::traits::MpvSend;
+use crate::traits::{MpvRecv, MpvSend};
 
 /// The primary interface to mpv.
 ///
@@ -420,7 +420,7 @@ impl Handle {
     ///#     Ok(())
     ///# }
     /// ```
-    pub fn get_property<T: MpvSend>(&self, name: &str) -> Result<T> {
+    pub fn get_property<T: MpvRecv>(&self, name: &str) -> Result<T> {
         let owned_name = CString::new(name)?;
 
         unsafe {
