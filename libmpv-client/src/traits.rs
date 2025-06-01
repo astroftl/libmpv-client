@@ -16,7 +16,7 @@ pub(crate) trait ToMpvRepr: MpvSend {
     type ReprWrap<'a>: MpvRepr where Self: 'a;
 
     // TODO: Make this return a Result<> for better error handling.
-    fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>>;
+    fn to_mpv_repr(&self) -> Self::ReprWrap<'_>;
 }
 
 pub(crate) trait MpvRepr: Sized {

@@ -6,7 +6,7 @@ use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list, setup_mpv_stubs};
 use crate::{ByteArray, Node, NodeArray, NodeMap};
-use crate::traits::MpvSend;
+use crate::traits::{MpvSend, ToMpvRepr};
 use crate::tests::stubs;
 
 #[test]
@@ -780,4 +780,83 @@ fn ba_to_mpv() {
         assert_eq!(buffer, cbuffer);
         Ok(0)
     }).unwrap();
+}
+
+#[test]
+fn node_huge_round_trip() {
+    let hello_worlds = Node::Array(vec![
+        Node::String(String::from("hello, world!1")),
+        Node::String(String::from("hello, world!2")),
+        Node::String(String::from("hello, world!3")),
+        Node::String(String::from("hello, world!4")),
+        Node::String(String::from("hello, world!5")),
+        Node::String(String::from("hello, world!6")),
+        Node::String(String::from("hello, world!7")),
+        Node::String(String::from("hello, world!8")),
+        Node::String(String::from("hello, world!9")),
+    ]);
+
+    let hello_map = Node::Map(HashMap::from([
+        ("hello1".to_string(), hello_worlds.clone()),
+        ("hello2".to_string(), hello_worlds.clone()),
+        ("hello3".to_string(), hello_worlds.clone()),
+        ("hello4".to_string(), hello_worlds.clone()),
+        ("hello5".to_string(), hello_worlds.clone()),
+        ("hello6".to_string(), hello_worlds.clone()),
+        ("hello7".to_string(), hello_worlds.clone()),
+        ("hello8".to_string(), hello_worlds.clone()),
+        ("hello9".to_string(), hello_worlds.clone()),
+    ]));
+
+    let number_map = Node::Map(HashMap::from([
+        ("1".to_string(), hello_map.clone()),
+        ("2".to_string(), hello_map.clone()),
+        ("3".to_string(), hello_map.clone()),
+        ("4".to_string(), hello_map.clone()),
+        ("5".to_string(), hello_map.clone()),
+        ("6".to_string(), hello_map.clone()),
+        ("7".to_string(), hello_map.clone()),
+        ("8".to_string(), hello_map.clone()),
+        ("9".to_string(), hello_map.clone()),
+    ]));
+
+    let number_array = Node::Array(vec![
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+        number_map.clone(),
+    ]);
+
+    let node = Node::Map(HashMap::from([
+        ("number_array".to_string(), number_array.clone()),
+        ("number_map".to_string(), number_map.clone()),
+        ("hello_map".to_string(), hello_map.clone()),
+        ("hello_worlds".to_string(), hello_worlds.clone()),
+        ("hello_worlds2".to_string(), hello_worlds.clone()),
+        ("hello_map2".to_string(), hello_map.clone()),
+        ("number_map2".to_string(), number_map.clone()),
+        ("number_array2".to_string(), number_array.clone()),
+    ]));
+
+    let mpv_repr = node.to_mpv_repr();
+
+    let test_node = unsafe { Node::from_node_ptr(&raw const *mpv_repr.node) }.unwrap();
+
+    assert_eq!(test_node, node);
 }

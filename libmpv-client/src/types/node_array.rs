@@ -12,17 +12,17 @@ pub type NodeArray = Vec<Node>;
 pub(crate) struct MpvNodeArray<'a> {
     _original: &'a NodeArray,
 
-    _owned_reprs: Vec<Box<MpvNode<'a>>>,
+    _owned_reprs: Vec<MpvNode<'a>>,
     _flat_reprs: Vec<mpv_node>,
 
-    node_list: mpv_node_list,
+    node_list: Box<mpv_node_list>,
 }
 
 impl MpvRepr for MpvNodeArray<'_> {
     type Repr = mpv_node_list;
 
     fn ptr(&self) -> *const Self::Repr {
-        &raw const self.node_list
+        &raw const *self.node_list
     }
 }
 
@@ -62,21 +62,21 @@ impl MpvSend for NodeArray {
 impl ToMpvRepr for NodeArray {
     type ReprWrap<'a> = MpvNodeArray<'a>;
 
-    fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>> {
-        let mut repr = Box::new(MpvNodeArray {
+    fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
+        let mut repr = MpvNodeArray {
             _original: self,
             _owned_reprs: Vec::with_capacity(self.len()),
             _flat_reprs: Vec::with_capacity(self.len()),
-            node_list: mpv_node_list {
+            node_list: Box::new(mpv_node_list {
                 num: self.len() as c_int,
                 values: null_mut(),
                 keys: null_mut(),
-            },
-        });
+            }),
+        };
 
         for node in self {
             let node_repr = node.to_mpv_repr();
-            repr._flat_reprs.push(node_repr.node);
+            repr._flat_reprs.push(*node_repr.node);
             repr._owned_reprs.push(node_repr);
         }
 

@@ -13,20 +13,20 @@ pub type NodeMap = HashMap<String, Node>;
 pub(crate) struct MpvNodeMap<'a> {
     _original: &'a NodeMap,
 
-    _owned_reprs: Vec<Box<MpvNode<'a>>>,
+    _owned_reprs: Vec<MpvNode<'a>>,
     _flat_reprs: Vec<mpv_node>,
 
     _owned_keys: Vec<CString>,
     _flat_keys: Vec<*const c_char>,
 
-    node_list: mpv_node_list,
+    node_list: Box<mpv_node_list>,
 }
 
 impl MpvRepr for MpvNodeMap<'_> {
     type Repr = mpv_node_list;
 
     fn ptr(&self) -> *const Self::Repr {
-        &raw const self.node_list
+        &raw const *self.node_list
     }
 }
 
@@ -77,19 +77,19 @@ impl MpvSend for NodeMap {
 impl ToMpvRepr for NodeMap {
     type ReprWrap<'a> = MpvNodeMap<'a>;
 
-    fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>> {
-        let mut repr = Box::new(MpvNodeMap {
+    fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
+        let mut repr = MpvNodeMap {
             _original: self,
             _owned_reprs: Vec::with_capacity(self.len()),
             _flat_reprs: Vec::with_capacity(self.len()),
             _owned_keys: Vec::with_capacity(self.len()),
             _flat_keys: Vec::with_capacity(self.len()),
-            node_list: mpv_node_list {
+            node_list: Box::new(mpv_node_list {
                 num: self.len() as c_int,
                 values: null_mut(),
                 keys: null_mut(),
-            },
-        });
+            }),
+        };
 
         for (key, value) in self {
             // TODO: Remove this unwrap() by converting to_mpv_repr to return Result<>. See traits.rs.
@@ -98,7 +98,7 @@ impl ToMpvRepr for NodeMap {
             repr._owned_keys.push(cstring);
 
             let val_repr = value.to_mpv_repr();
-            repr._flat_reprs.push(val_repr.node);
+            repr._flat_reprs.push(*val_repr.node);
             repr._owned_reprs.push(val_repr);
         }
 

@@ -10,14 +10,14 @@ pub type ByteArray = Vec<u8>;
 pub(crate) struct MpvByteArray<'a> {
     _original: &'a ByteArray,
 
-    byte_array: mpv_byte_array
+    byte_array: Box<mpv_byte_array>
 }
 
 impl MpvRepr for MpvByteArray<'_> {
     type Repr = mpv_byte_array;
 
     fn ptr(&self) -> *const Self::Repr {
-        &raw const self.byte_array
+        &raw const *self.byte_array
     }
 }
 
@@ -50,13 +50,13 @@ impl MpvSend for ByteArray {
 impl ToMpvRepr for ByteArray {
     type ReprWrap<'a> = MpvByteArray<'a>;
 
-    fn to_mpv_repr(&self) -> Box<Self::ReprWrap<'_>> {
-        Box::new(MpvByteArray {
+    fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
+        MpvByteArray {
             _original: self,
-            byte_array: mpv_byte_array {
+            byte_array: Box::new(mpv_byte_array {
                 data: self.as_ptr() as *mut c_void,
                 size: self.len(),
-            },
-        })
+            }),
+        }
     }
 }
