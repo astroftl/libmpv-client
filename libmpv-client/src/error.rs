@@ -4,7 +4,6 @@
 
 use std::ffi::{NulError, c_int};
 use std::str::Utf8Error;
-use crate::Handle;
 
 /// [`std::result::Result`] wrapper around [`Error`] for mpv functions.
 ///
@@ -96,7 +95,7 @@ pub enum Error {
     PropertyUnavailable,
     /// Error setting or getting a property.
     PropertyError,
-    /// General error when running a command with [`Handle::command()`] and similar.
+    /// General error when running a command with [`Handle::command()`](crate::Handle::command()) and similar.
     Command,
     /// Generic error on loading (usually used with [`EndFileReason::Error(e)`](crate::event::EndFileReason::Error)).
     LoadingFailed,
