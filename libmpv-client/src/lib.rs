@@ -1,7 +1,5 @@
-//! Rust wrapper over mpv/client.h
-//!
-//! A Rust implementation of the mpv client API, suitable for cplugins.
-
+//![`Handle`]: Handle
+#![doc = include_str!("../../README.md")]
 #![warn(missing_docs)]
 
 #[macro_use]

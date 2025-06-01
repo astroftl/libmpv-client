@@ -225,6 +225,19 @@ impl Handle {
     /// Set an option. Note that you can't normally set options during runtime. It works in an uninitialized state (see [`Handle::create()`]), and in some cases in at runtime.
     ///
     /// Using a format other than [`Node`] is equivalent to constructing a [`Node`] with the given format and data and passing it to this function.
+    ///
+    /// # Example
+    /// ```
+    ///# #![allow(deprecated)]
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     // TODO: Split MpvSend to MpvSend and MpvRecv so unowned objects (like &str) can be sent.
+    ///     client.set_option("idle", "yes".to_string())?;
+    ///#     Ok(())
+    ///# }
+    /// ```
     #[deprecated = "For most purposes, this is not needed anymore.\
     \
     Starting with mpv version 0.21.0 (version 1.23) most options can be set with `Handle::set_property()` (and related functions), and even before `Handle::initialize()`.\
@@ -239,7 +252,7 @@ impl Handle {
         }).map(|_| ())
     }
 
-    /// Send a command to the player. Commands are the same as those used in input.conf, except that this function takes parameters in a pre-split form.
+    /// Send a command to the player. Commands are the same as those used in `input.conf`, except that this function takes parameters in a pre-split form.
     ///
     /// The commands and their parameters are documented in input.rst.
     ///
@@ -247,6 +260,17 @@ impl Handle {
     ///
     /// # Params
     /// - `command` - Usually, the first item is the command, and the following items are arguments.
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     client.command(&["script-message-to", "commands", "type", "seek absolute-percent", "6"])?;
+    ///#     Ok(())
+    ///# }
+    /// ```
     pub fn command(&self, command: &[impl AsRef<str>]) -> Result<()> {
         let mut owned_strings = Vec::with_capacity(command.len());
         for s in command {
@@ -345,6 +369,17 @@ impl Handle {
     /// The same happens when calling this function with [`Node`]: the underlying format may be converted to another type if possible.
     ///
     /// Using a format other than [`Node`] is equivalent to constructing a [`Node`] with the given format and data and passing it to this function.
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     client.set_property("chapter", 3)?;
+    ///#     Ok(())
+    ///# }
+    /// ```
     pub fn set_property<T: MpvSend>(&self, name: &str, value: T) -> Result<()> {
         let owned_name = CString::new(name)?;
 
@@ -370,6 +405,20 @@ impl Handle {
     ///
     /// In some cases, the data is automatically converted and access succeeds. For example, [`i64`] is always converted to [`f64`],
     /// and access using [`String`] usually invokes a string formatter.
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     // use turbofish...
+    ///     let duration = client.get_property::<f64>("duration")?;
+    ///     // or explicitly type the assignment...
+    ///     let node: Node = client.get_property("metadata")?;
+    ///#     Ok(())
+    ///# }
+    /// ```
     pub fn get_property<T: MpvSend>(&self, name: &str) -> Result<T> {
         let owned_name = CString::new(name)?;
 
@@ -417,7 +466,19 @@ impl Handle {
     ///
     ///
     /// Also see [`Handle::unobserve_property()`].
-    pub fn observe_property(&self, userdata: u64, name: &str, format: Format) -> Result<()> {
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     // you can set userdata = 0 if you don't plan un unobserving the value later
+    ///     client.observe_property("playtime-remaining", Format::DOUBLE, 0)?;
+    ///#     Ok(())
+    ///# }
+    /// ```
+    pub fn observe_property(&self, name: &str, format: Format, userdata: u64) -> Result<()> {
         let owned_name = CString::new(name)?;
 
         let err = unsafe { mpv::observe_property(self.handle, userdata, owned_name.as_ptr(), format.0) };
@@ -433,6 +494,22 @@ impl Handle {
     ///
     /// # Returns
     /// [`Result<i32>`] contains the number of properties removed on success.
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     // if you want to later unobserve a property, you must provide a userdata
+    ///     let media_title_userdata: u64 = 12345; // arbitrary, user-defined value
+    ///     client.observe_property("media-title", Format::STRING, media_title_userdata)?;
+    ///
+    ///     // later...
+    ///     client.unobserve_property(media_title_userdata)?;
+    ///#     Ok(())
+    ///# }
+    /// ```
     pub fn unobserve_property(&self, userdata: u64) -> Result<i32> {
         let err = unsafe { mpv::unobserve_property(self.handle, userdata) };
         error_to_result_code(err)
@@ -457,13 +534,14 @@ impl Handle {
     /// - `max_level`: Maximum log level to subscribe to.
     ///
     /// The value [`LogLevel::None`] disables all messages. This is the default.
-    // TODO: Make this accept Rusty LogLevels.
     pub fn request_log_messages(&self, max_level: LogLevel) -> Result<()> {
         let err = unsafe { mpv::request_log_messages(self.handle, max_level.to_cstr().as_ptr()) };
         error_to_result(err)
     }
 
     /// Wait for the next event, or until the timeout expires, or if another thread makes a call to [`Handle::wakeup()`].
+    /// 
+    /// See [`Event`] for the possible events.
     ///
     /// # Params
     /// - `timeout`: Timeout in seconds, after which the function returns even if no event was received. An [`Event::None`] is returned on timeout.
@@ -480,6 +558,26 @@ impl Handle {
     ///
     /// Note that most other API functions are not restricted by this, and no API function internally calls [`Handle::wait_event()`].
     /// Additionally, concurrent calls to different [`Handle`]s are always safe.
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     match client.wait_event(0.0)? {
+    ///         Event::None => println!("No event was ready yet!"),
+    ///         Event::Shutdown => {
+    ///             println!("Shutting down!");
+    ///             // You must cleanly exit after receiving Event::Shutdown, or else you'll hang mpv. 
+    ///             return Ok(());
+    ///         }
+    ///         Event::LogMessage(log_message) => println!("Got a log message: {log_message:?}"),
+    ///         event => println!("Got an other event: {event:?}"),
+    ///     }
+    ///#     Ok(())
+    ///# }
+    /// ```
     pub fn wait_event(&self, timeout: f64) -> Result<Event> {
         Event::from_ptr(unsafe { mpv::wait_event(self.handle, timeout) })
     }
@@ -537,6 +635,28 @@ impl Handle {
     /// # Warning
     /// It is explicitly undefined behavior to call this more than once for each [`Event::Hook`], to pass an incorrect ID,
     /// or to call this on a [`Handle`] different from the one that registered the handler and received the event.
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn do_something_during_hook() {}
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    ///     match client.wait_event(0.0)? {
+    ///         Event::Hook(hook) => {
+    ///             do_something_during_hook();
+    ///             // You MUST call hook_continue() on the provided Hook.id,
+    ///             // or else you'll hang mpv.
+    ///             client.hook_continue(hook.id)?;
+    ///         }
+    ///         // ...
+    ///         event => {}
+    ///     }
+    ///#     Ok(())
+    ///# }
+    /// ```
     pub fn hook_continue(&self, id: u64) -> Result<()> {
         let err = unsafe { mpv::hook_continue(self.handle, id) };
         error_to_result(err)

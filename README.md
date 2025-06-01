@@ -1,6 +1,8 @@
 # libmpv-client
 A Rust wrapper over libmpv.
 
+The primary interface of this crate is [`Handle`], start there.
+
 Currently, only [`client.h`](https://github.com/mpv-player/mpv/blob/release/0.40/include/mpv/client.h) is implemented, which is sufficient for writing mpv [cplugins](https://mpv.io/manual/stable/#c-plugins).
 
 ### Windows Support
@@ -47,3 +49,5 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     }
 }
 ```
+
+[`Handle`]: target/doc/libmpv_client/handle/struct.Handle.html
