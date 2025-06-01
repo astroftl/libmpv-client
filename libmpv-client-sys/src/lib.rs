@@ -24,7 +24,7 @@ use mpv_funcs::*;
 /// The version of the mpv `client.h` (encoded as `(((major) << 16) | (minor) | 0UL)`) that this crate was built against.
 ///
 /// Currently, `major` is 2 and `minor` is 5.
-pub const EXPECTED_MPV_VERSION: u32 = 131077;
+pub const EXPECTED_MPV_VERSION: u32 = 0x0002_0005;
 
 use std::fmt::{Debug, Formatter};
 
