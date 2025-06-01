@@ -236,8 +236,7 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     // TODO: Split MpvSend to MpvSend and MpvRecv so unowned objects (like &str) can be sent.
-    ///     client.set_option("idle", "yes".to_string())?;
+    /// client.set_option("idle", "yes")?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -270,7 +269,7 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     client.command(&["script-message-to", "commands", "type", "seek absolute-percent", "6"])?;
+    /// client.command(&["script-message-to", "commands", "type", "seek absolute-percent", "6"])?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -305,6 +304,27 @@ impl Handle {
     ///
     /// # Return
     /// If the function succeeds, [`Result<Node>`] is command-specific return data. Few commands actually use this.
+    ///
+    /// # Example
+    /// ```
+    ///# use libmpv_client::*;
+    ///#
+    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
+    ///#     let client = Handle::from_ptr(handle);
+    /// // For convenience, you use node_array!(), which accepts any arbitrary types
+    /// // implementing Into<Node> and produces a Node::Array...
+    /// client.command_node(node_array!("frame-step", 20, "mute"))?;
+    ///
+    /// // ...or node_map!(), which is similar but takes (Into<String>, Into<Node>) tuples
+    /// // and produces a Node::Map.
+    /// client.command_node(node_map! {
+    ///     ("name", "show-text"),
+    ///     ("text", "peekaboo!"),
+    ///     ("duration", 500),
+    /// })?;
+    ///#     Ok(())
+    ///# }
+    /// ```
     pub fn command_node(&self, command: Node) -> Result<Node> {
         let mut return_mpv_node = MaybeUninit::uninit();
         
@@ -379,7 +399,7 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     client.set_property("chapter", 3)?;
+    /// client.set_property("chapter", 3)?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -416,10 +436,10 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     // use turbofish...
-    ///     let duration = client.get_property::<f64>("duration")?;
-    ///     // or explicitly type the assignment...
-    ///     let node: Node = client.get_property("metadata")?;
+    /// // use turbofish...
+    /// let duration = client.get_property::<f64>("duration")?;
+    /// // or explicitly type the assignment...
+    /// let node: Node = client.get_property("metadata")?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -459,7 +479,7 @@ impl Handle {
     /// Only the [`Handle`] on which this was called will receive [`Event::PropertyChange`] events or can unobserve them.
     ///
     /// # Warning
-    /// If a property is unavailable or retrieving it caused an error, [`Event::PropertyChange`]'s [`PropertyChange.value`](field@event::PropertyChange::value) will be [`PropertyValue::None`],
+    /// If a property is unavailable or retrieving it caused an error, [`Event::PropertyChange`]'s [`PropertyChange.value`](field@event::PropertyChange::value) will be [`PropertyValue::None`](event::PropertyValue::None),
     /// even if the format parameter was set to a different value.
     ///
     /// # Params
@@ -477,8 +497,8 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     // you can set userdata = 0 if you don't plan un unobserving the value later
-    ///     client.observe_property("playtime-remaining", Format::DOUBLE, 0)?;
+    /// // you can set userdata = 0 if you don't plan un unobserving the value later
+    /// client.observe_property("playtime-remaining", Format::DOUBLE, 0)?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -505,12 +525,12 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     // if you want to later unobserve a property, you must provide a userdata
-    ///     let media_title_userdata: u64 = 12345; // arbitrary, user-defined value
-    ///     client.observe_property("media-title", Format::STRING, media_title_userdata)?;
+    /// // if you want to later unobserve a property, you must provide a userdata
+    /// let media_title_userdata: u64 = 12345; // arbitrary, user-defined value
+    /// client.observe_property("media-title", Format::STRING, media_title_userdata)?;
     ///
-    ///     // later...
-    ///     client.unobserve_property(media_title_userdata)?;
+    /// // later...
+    /// client.unobserve_property(media_title_userdata)?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -569,16 +589,16 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     match client.wait_event(0.0)? {
-    ///         Event::None => println!("No event was ready yet!"),
-    ///         Event::Shutdown => {
-    ///             println!("Shutting down!");
-    ///             // You must cleanly exit after receiving Event::Shutdown, or else you'll hang mpv.
-    ///             return Ok(());
-    ///         }
-    ///         Event::LogMessage(log_message) => println!("Got a log message: {log_message:?}"),
-    ///         event => println!("Got an other event: {event:?}"),
+    /// match client.wait_event(0.0)? {
+    ///     Event::None => println!("No event was ready yet!"),
+    ///     Event::Shutdown => {
+    ///         println!("Shutting down!");
+    ///         // You must cleanly exit after receiving Event::Shutdown, or else you'll hang mpv.
+    ///         return Ok(());
     ///     }
+    ///     Event::LogMessage(log_message) => println!("Got a log message: {log_message:?}"),
+    ///     event => println!("Got an other event: {event:?}"),
+    /// }
     ///#     Ok(())
     ///# }
     /// ```
@@ -648,16 +668,16 @@ impl Handle {
     ///#
     ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
     ///#     let client = Handle::from_ptr(handle);
-    ///     match client.wait_event(0.0)? {
-    ///         Event::Hook(hook) => {
-    ///             do_something_during_hook();
-    ///             // You MUST call hook_continue() on the provided Hook.id,
-    ///             // or else you'll hang mpv.
-    ///             client.hook_continue(hook.id)?;
-    ///         }
-    ///         // ...
-    ///         event => {}
+    /// match client.wait_event(0.0)? {
+    ///     Event::Hook(hook) => {
+    ///         do_something_during_hook();
+    ///         // You MUST call hook_continue() on the provided Hook.id,
+    ///         // or else you'll hang mpv.
+    ///         client.hook_continue(hook.id)?;
     ///     }
+    ///     // ...
+    ///     event => {}
+    /// }
     ///#     Ok(())
     ///# }
     /// ```
