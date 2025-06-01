@@ -102,5 +102,5 @@ fn generate_bindings() {
 }
 
 fn main() {
-    generate_bindings()
+    generate_bindings();
 }

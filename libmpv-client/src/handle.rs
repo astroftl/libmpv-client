@@ -33,6 +33,7 @@ impl Handle {
     ///#     0
     /// }
     /// ```
+    #[must_use]
     pub fn from_ptr(handle: *mut mpv_handle) -> Self {
         Handle {
             handle
@@ -540,7 +541,7 @@ impl Handle {
     }
 
     /// Wait for the next event, or until the timeout expires, or if another thread makes a call to [`Handle::wakeup()`].
-    /// 
+    ///
     /// See [`Event`] for the possible events.
     ///
     /// # Params
@@ -569,7 +570,7 @@ impl Handle {
     ///         Event::None => println!("No event was ready yet!"),
     ///         Event::Shutdown => {
     ///             println!("Shutting down!");
-    ///             // You must cleanly exit after receiving Event::Shutdown, or else you'll hang mpv. 
+    ///             // You must cleanly exit after receiving Event::Shutdown, or else you'll hang mpv.
     ///             return Ok(());
     ///         }
     ///         Event::LogMessage(log_message) => println!("Got a log message: {log_message:?}"),

@@ -110,12 +110,14 @@ pub enum EndFileReason {
     Error(Error),
     /// The file was a playlist or similar.
     ///
-    /// When the playlist is read, its entries will be appended to the playlist after the entry of the current file, the entry of the current file is removed, and a MPV_EVENT_END_FILE event is sent with reason set to MPV_END_FILE_REASON_REDIRECT.
+    /// When the playlist is read, its entries will be appended to the playlist after the entry of the current file, the entry of the current file is removed, and an [`Event::EndFile`] is sent with [`EndFile.reason`](field@EndFile::reason) set to [`EndFileReason::Redirect`].
     /// Then playback continues with the playlist contents.
     Redirect,
 }
 
-/// Details provided to [`Event::EndFile`].
+/// Events that may be received from [`Handle::wait_event()`].
+///
+/// Some are just informational, while some contain additional data and some are responses to mpv commands.
 #[derive(Debug)]
 pub enum Event {
     /// Nothing happened. Happens on timeouts or sporadic wakeups.
@@ -173,7 +175,7 @@ pub enum Event {
     ///
     /// Usually happens at the start of playback and after seeking. The main purpose is allowing the client to detect when a seek request is finished.
     PlaybackRestart,
-    /// Event sent due to mpv_observe_property().
+    /// Event sent when a property observed with [`Handle::observe_property()`] is changed.
     PropertyChange(PropertyChange),
     /// Happens if the internal per-[`mpv_handle`] ringbuffer overflows, and at least 1 event had to be dropped.
     ///

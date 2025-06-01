@@ -15,7 +15,7 @@ pub fn generated_version_check() -> Result<()> {
     }
 }
 
-/// Checks that the MPV_CLIENT_API_VERSION of the client matches the version of mpv this crate was built for.
+/// Checks that the [`MPV_CLIENT_API_VERSION`](libmpv_client_sys::MPV_CLIENT_API_VERSION) of the client matches the version of mpv this crate was built for.
 pub fn version_check() -> Result<()> {
     let version = Handle::client_api_version();
     if version == libmpv_client_sys::EXPECTED_MPV_VERSION as u64 {

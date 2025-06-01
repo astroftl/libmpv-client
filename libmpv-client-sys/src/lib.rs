@@ -1,6 +1,7 @@
 #![cfg(not(doctest))]
 #![allow(rustdoc::broken_intra_doc_links)]
 #![allow(rustdoc::invalid_html_tags)]
+#![allow(clippy::missing_safety_doc)]
 #![warn(missing_docs)]
 
 //! [bindgen](https://docs.rs/bindgen/latest/bindgen/) bindings for libmpv's [`client.h`](https://github.com/mpv-player/mpv/blob/master/include/mpv/client.h).
@@ -281,7 +282,7 @@ mod mpv_stubs {
         #[cfg(feature = "dyn-sym")]
         unsafe {
             pfn_mpv_free = Some(free);
-            pfn_mpv_free_node_contents = Some(free_node_contents)
+            pfn_mpv_free_node_contents = Some(free_node_contents);
         }
     }
 }

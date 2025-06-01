@@ -4,6 +4,7 @@
 
 use std::ffi::{NulError, c_int};
 use std::str::Utf8Error;
+use crate::Handle;
 
 /// [`std::result::Result`] wrapper around [`Error`] for mpv functions.
 ///
@@ -83,21 +84,21 @@ pub enum Error {
     InvalidParameter,
     /// Trying to set an option that doesn't exist.
     OptionNotFound,
-    /// Trying to set an option using an unsupported MPV_FORMAT.
+    /// Trying to set an option using an unsupported [`Format`](crate::Format).
     OptionFormat,
     /// Setting the option failed. Typically this happens if the provided option value could not be parsed.
     OptionError,
     /// The accessed property doesn't exist.
     PropertyNotFound,
-    /// Trying to set or get a property using an unsupported MPV_FORMAT.
+    /// Trying to set or get a property using an unsupported [`Format`](crate::Format).
     PropertyFormat,
     /// The property exists, but is not available. This usually happens when the associated subsystem is not active, e.g. querying audio parameters while audio is disabled.
     PropertyUnavailable,
     /// Error setting or getting a property.
     PropertyError,
-    /// General error when running a command with mpv_command and similar.
+    /// General error when running a command with [`Handle::command()`] and similar.
     Command,
-    /// Generic error on loading (usually used with mpv_event_end_file.error).
+    /// Generic error on loading (usually used with [`EndFileReason::Error(e)`](crate::event::EndFileReason::Error)).
     LoadingFailed,
     /// Initializing the audio output failed.
     AoInitFailed,
