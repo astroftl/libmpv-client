@@ -12,6 +12,7 @@ pub use mpv::mpv_handle;
 
 pub mod handle;
 pub use handle::Handle;
+pub use handle::Client;
 
 pub mod event;
 pub use event::{Event, EventId};

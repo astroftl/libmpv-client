@@ -22,18 +22,17 @@ crate-type = ["cdylib"]
 use libmpv_client::*;
 
 #[unsafe(no_mangle)]
-extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
-    let client = Handle::from_ptr(handle);
+extern "C" fn mpv_open_cplugin(ptr: *mut mpv_handle) -> std::os::raw::c_int {
+    let handle = Handle::from_ptr(ptr);
 
     println!("Hello from Rust!");
 
     loop {
-        match client.wait_event(0.0) {
+        match handle.wait_event(0.0) {
             Ok(event) => {
                 match event {
                     Event::Shutdown => {
                         println!("Goodbye from Rust!");
-                        client.destroy();
                         return 0;
                     },
                     Event::None => {},

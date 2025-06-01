@@ -2,6 +2,7 @@
 
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
+use std::ops::Deref;
 use std::ptr::null;
 
 use libmpv_client_sys as mpv;
@@ -13,8 +14,8 @@ use crate::types::traits::{MpvRecv, MpvSend, MpvSendInternal};
 
 /// The primary interface to mpv.
 ///
-/// This [`Handle`] must be created by mpv. It can either be spun off an existing handle via [`Handle::create()`], [`Handle::create_client()`], or [`Handle::create_weak_client()`],
-/// or it may be passed in from mpv to a cplugin via `mpv_open_cplugin(*mpv_handle)`. See [`Handle::from_ptr()`] for an example.
+/// This [`Handle`] must be created by mpv; usually it is passed in from mpv to a cplugin via `mpv_open_cplugin(*mpv_handle)`.
+/// See [`Handle::from_ptr()`] for an example.
 pub struct Handle {
     handle: *mut mpv_handle
 }
@@ -29,8 +30,8 @@ impl Handle {
     ///# use libmpv_client::*;
     ///#
     /// #[unsafe(no_mangle)]
-    /// extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
-    ///     let client = Handle::from_ptr(handle);
+    /// extern "C" fn mpv_open_cplugin(ptr: *mut mpv_handle) -> std::os::raw::c_int {
+    ///     let handle = Handle::from_ptr(ptr);
     ///     // ...
     ///#     0
     /// }
@@ -66,21 +67,21 @@ impl Handle {
         unsafe { mpv::client_id(self.handle) }
     }
 
-    /// Create a new mpv instance and an associated client API [`Handle`] to control the mpv instance.
+    /// Create a new mpv instance and an associated client API [`Client`] to control the mpv instance.
     ///
     /// This instance is in a pre-initialized state and needs to be initialized to be actually used with most other API functions.
     ///
     /// Some API functions will return [`Error::Uninitialized`] in the uninitialized state.
     /// You can call [`Handle::set_property()`] to set initial options.
-    /// After this, call [`Handle::initialize()`] to start the player, and then use e.g. [`Handle::command()`] to start playback of a file.
+    /// After this, call [`Client::initialize()`] to start the player, and then use e.g. [`Handle::command()`] to start playback of a file.
     ///
-    /// The point of separating [`Handle`] creation and actual initialization is that you can configure things which can't be changed during runtime.
+    /// The point of separating [`Client`] creation and actual initialization is that you can configure things which can't be changed during runtime.
     ///
     /// Unlike the command line player, this will have initial settings suitable for embedding in applications. The following settings are different:
     /// - `stdin`/`stdout`/`stderr` and the terminal will never be accessed.
     ///   This is equivalent to setting the [`--terminal=no`](https://mpv.io/manual/stable/#options-terminal) option. (Technically, this also suppresses C signal handling.)
     /// - No config files will be loaded. This is roughly equivalent to using [`--no-config`](https://mpv.io/manual/stable/#options-no-config).
-    ///   Since libmpv 1.15, you can actually re-enable this option, which will make libmpv load config files during [`Handle::initialize()`].
+    ///   Since libmpv 1.15, you can actually re-enable this option, which will make libmpv load config files during [`Client::initialize()`].
     ///   If you do this, you are strongly encouraged to set the [`config-dir`](https://mpv.io/manual/stable/#options-config-dir) option too.
     ///   (Otherwise it will load the mpv command line player's config.)
     /// - Idle mode is enabled, which means the playback core will enter idle mode if there are no more files to play on the internal playlist, instead of exiting.
@@ -97,98 +98,36 @@ impl Handle {
     /// # Concurrency
     /// Note that you should avoid doing concurrent accesses on the uninitialized client handle.
     /// (Whether concurrent access is definitely allowed or not has yet to be decided by mpv.)
-    pub fn create() -> Handle {
+    pub fn create() -> Client {
         let handle = unsafe { mpv::create() };
-        Handle::from_ptr(handle)
+        Client(Handle::from_ptr(handle))
     }
 
-    /// Initialize an uninitialized mpv instance. If the mpv instance is already running, an [`Error`] is returned.
-    ///
-    /// This function needs to be called to make full use of the client API if the client API handle was created with [`Handle::create()`].
-    ///
-    /// Only the following options are required to be set _before_ [`Handle::initialize()`]:
-    /// - options which are only read at initialization time:
-    ///   - `config`
-    ///   - [`config-dir`](https://mpv.io/manual/stable/#options-config-dir)
-    ///   - [`input-conf`](https://mpv.io/manual/stable/#options-input-conf)
-    ///   - [`load-scripts`](https://mpv.io/manual/stable/#options-load-scripts)
-    ///   - [`script`](https://mpv.io/manual/stable/#options-scripts)
-    ///   - [`player-operation-mode`](https://mpv.io/manual/stable/#options-player-operation-mode)
-    ///   - `input-app-events` (macOS)
-    /// - [all encoding mode options](https://mpv.io/manual/stable/#encoding)
-    pub fn initialize(&self) -> Result<()> {
-        let err = unsafe { mpv::initialize(self.handle) };
-        error_to_result(err)
-    }
-
-    /// Disconnect and destroy the [`Handle`]. The underlying [`mpv_handle`] will be deallocated with this API call.
-    ///
-    /// If the last [`mpv_handle`] is detached, the core player is destroyed.
-    /// In addition, if there are only weak handles (such as created by [`Handle::create_weak_client()`] or internal scripts), these handles will be sent [`Event::Shutdown`].
-    /// This function may block until these clients have responded to the shutdown event, and the core is finally destroyed.
-    ///
-    /// # Concurrency
-    /// Since the underlying [`mpv_handle`] is destroyed somewhere on the way, it's not safe to call other functions concurrently on the same handle.
-    ///
-    /// <div class="warning">
-    ///
-    /// # Warning
-    /// There is currently [a bug in mpv](https://github.com/mpv-player/mpv/issues/16409) which causes the player to crash upon receiving an `mpv_destroy()` call from a cplugin client.
-    ///
-    /// Until this is resolved, cplugins should terminate (both if they wish to end their work early, or in response to an [`Event::Shutdown`]) by returning from `mpv_open_cplugin()`.
-    /// </div>
-    pub fn destroy(self) {
-        unsafe { mpv::destroy(self.handle) };
-        std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
-    }
-
-    /// Similar to [`Handle::destroy()`], but brings the player and all clients down as well and waits until all of them are destroyed. This function blocks.
-    ///
-    /// The advantage over [`Handle::destroy()`] is that while [`Handle::destroy()`] merely detaches the client handle from the player,
-    /// this function quits the player, waits until all other clients are destroyed (i.e., all [`mpv_handle`]s are detached), and also waits for the final termination of the player.
-    ///
-    /// # Concurrency
-    /// Since the underlying [`mpv_handle`] is destroyed somewhere on the way, it's not safe to call other functions concurrently on the same handle.
-    ///
-    /// <div class="warning">
-    ///
-    /// # Warning
-    /// There is currently [a bug in mpv](https://github.com/mpv-player/mpv/issues/16409) which causes the player to crash upon receiving an `mpv_destroy()` call from a cplugin client.
-    ///
-    /// Until this is resolved, cplugins should terminate (both if they wish to end their work early, or in response to an [`Event::Shutdown`]) by returning from `mpv_open_cplugin()`.
-    ///
-    /// If you wish to terminate mpv along with you, send `client.command(&["quit"])` before returning from `mpv_open_cplugin()`.
-    /// </div>
-    pub fn terminate_destroy(self) {
-        unsafe { mpv::terminate_destroy(self.handle) }
-        std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
-    }
-
-    /// Create a new client [`Handle`] connected to the same player core as `self`.
+    /// Create a new [`Client`] connected to the same player core as `self`.
     /// This context has its own event queue, its own [`Handle::request_event()`] state, its own [`Handle::request_log_messages()`] state,
     /// its own set of observed properties, and its own state for asynchronous operations. Otherwise, everything is shared.
     ///
-    /// This handle should be destroyed with [`Handle::destroy()`] if no longer needed.
+    /// This client should be destroyed with [`Client::destroy()`] if no longer needed.
     /// The core will live as long as there is at least 1 handle referencing it.
     /// Any handle can make the core quit, which will result in every handle receiving [`Event::Shutdown`].
-    pub fn create_client(&self, name: &str) -> Result<Handle> {
+    pub fn create_client(&self, name: &str) -> Result<Client> {
         let name_str = CString::new(name)?;
 
         let handle = unsafe { mpv::create_client(self.handle, name_str.as_ptr()) };
-        Ok(Handle::from_ptr(handle))
+        Ok(Client(Handle::from_ptr(handle)))
     }
 
     /// This is the same as [`Handle::create_client()`], but the created [`mpv_handle`] is treated as a weak reference.
     /// If all handles referencing a core are weak references, the core is automatically destroyed. (This still goes through normal shutdown, of course.
     /// Effectively, if the last non-weak handle is destroyed, then the weak handles receive [`Event::Shutdown`] and are asked to terminate as well.)
     ///
-    /// Note if you want to use this like refcounting: you have to be aware that [`Handle::terminate_destroy()`] _and_ [`Handle::destroy()`]
+    /// Note if you want to use this like refcounting: you have to be aware that [`Client::terminate_destroy()`] _and_ [`Client::destroy()`]
     /// for the last non-weak [`mpv_handle`] will block until all weak handles are destroyed.
-    pub fn create_weak_client(&self, name: &str) -> Result<Handle> {
+    pub fn create_weak_client(&self, name: &str) -> Result<Client> {
         let name_str = CString::new(name)?;
 
         let handle = unsafe { mpv::create_weak_client(self.handle, name_str.as_ptr()) };
-        Ok(Handle::from_ptr(handle))
+        Ok(Client(Handle::from_ptr(handle)))
     }
 
     /// Load a config file. This parses the file and sets every entry in the config file's default section as if [`Handle::set_option()`] is called.
@@ -234,9 +173,9 @@ impl Handle {
     ///# #![allow(deprecated)]
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
-    /// client.set_option("idle", "yes")?;
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
+    /// handle.set_option("idle", "yes")?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -267,9 +206,9 @@ impl Handle {
     /// ```
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
-    /// client.command(&["script-message-to", "commands", "type", "seek absolute-percent", "6"])?;
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
+    /// handle.command(&["script-message-to", "commands", "type", "seek absolute-percent", "6"])?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -309,15 +248,15 @@ impl Handle {
     /// ```
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
     /// // For convenience, you use node_array!(), which accepts any arbitrary types
     /// // implementing Into<Node> and produces a Node::Array...
-    /// client.command_node(node_array!("frame-step", 20, "mute"))?;
+    /// handle.command_node(node_array!("frame-step", 20, "mute"))?;
     ///
     /// // ...or node_map!(), which is similar but takes (Into<String>, Into<Node>) tuples
     /// // and produces a Node::Map.
-    /// client.command_node(node_map! {
+    /// handle.command_node(node_map! {
     ///     ("name", "show-text"),
     ///     ("text", "peekaboo!"),
     ///     ("duration", 500),
@@ -397,9 +336,9 @@ impl Handle {
     /// ```
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
-    /// client.set_property("chapter", 3)?;
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
+    /// handle.set_property("chapter", 3)?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -434,12 +373,12 @@ impl Handle {
     /// ```
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
     /// // use turbofish...
-    /// let duration = client.get_property::<f64>("duration")?;
+    /// let duration = handle.get_property::<f64>("duration")?;
     /// // or explicitly type the assignment...
-    /// let node: Node = client.get_property("metadata")?;
+    /// let node: Node = handle.get_property("metadata")?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -495,10 +434,10 @@ impl Handle {
     /// ```
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
     /// // you can set userdata = 0 if you don't plan un unobserving the value later
-    /// client.observe_property("playtime-remaining", Format::DOUBLE, 0)?;
+    /// handle.observe_property("playtime-remaining", Format::DOUBLE, 0)?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -523,14 +462,14 @@ impl Handle {
     /// ```
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
     /// // if you want to later unobserve a property, you must provide a userdata
     /// let media_title_userdata: u64 = 12345; // arbitrary, user-defined value
-    /// client.observe_property("media-title", Format::STRING, media_title_userdata)?;
+    /// handle.observe_property("media-title", Format::STRING, media_title_userdata)?;
     ///
     /// // later...
-    /// client.unobserve_property(media_title_userdata)?;
+    /// handle.unobserve_property(media_title_userdata)?;
     ///#     Ok(())
     ///# }
     /// ```
@@ -587,9 +526,9 @@ impl Handle {
     /// ```
     ///# use libmpv_client::*;
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
-    /// match client.wait_event(0.0)? {
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
+    /// match handle.wait_event(0.0)? {
     ///     Event::None => println!("No event was ready yet!"),
     ///     Event::Shutdown => {
     ///         println!("Shutting down!");
@@ -601,6 +540,34 @@ impl Handle {
     /// }
     ///#     Ok(())
     ///# }
+    /// ```
+    /// 
+    /// # Warning
+    /// cplugins **must** call [`Handle::wait_event()`] at least once after initialization;
+    /// mpv will block awaiting a sign of life:.
+    ///```
+    ///# use std::thread::sleep;
+    ///# use std::time::Duration;
+    ///# use libmpv_client::Handle;
+    ///# use libmpv_client_sys::mpv_handle;
+    ///# 
+    /// #[unsafe(no_mangle)]
+    /// extern "C" fn mpv_open_cplugin(ptr: *mut mpv_handle) -> std::os::raw::c_int {
+    ///     let handle = Handle::from_ptr(ptr);
+    /// 
+    ///     println!("Sleeping 5 seconds pre-wait_event...");
+    ///     // mpv will be completely hung during this sleep...
+    ///     sleep(Duration::from_secs(5));
+    /// 
+    ///     // Let mpv know we're alive!
+    ///     let _ = handle.wait_event(-1.0);
+    /// 
+    ///     println!("Sleeping 15 seconds post-wait_event...");
+    ///     // mpv will operate normally during this sleep.
+    ///     sleep(Duration::from_secs(15));
+    /// 
+    ///     return 0;
+    /// }
     /// ```
     pub fn wait_event(&self, timeout: f64) -> Result<Event> {
         Event::from_ptr(unsafe { mpv::wait_event(self.handle, timeout) })
@@ -666,14 +633,14 @@ impl Handle {
     ///#
     ///# fn do_something_during_hook() {}
     ///#
-    ///# fn example_func(handle: *mut mpv_handle) -> Result<()> {
-    ///#     let client = Handle::from_ptr(handle);
-    /// match client.wait_event(0.0)? {
+    ///# fn example_func(ptr: *mut mpv_handle) -> Result<()> {
+    ///#     let handle = Handle::from_ptr(ptr);
+    /// match handle.wait_event(0.0)? {
     ///     Event::Hook(hook) => {
     ///         do_something_during_hook();
     ///         // You MUST call hook_continue() on the provided Hook.id,
     ///         // or else you'll hang mpv.
-    ///         client.hook_continue(hook.id)?;
+    ///         handle.hook_continue(hook.id)?;
     ///     }
     ///     // ...
     ///     event => {}
@@ -687,9 +654,140 @@ impl Handle {
     }
 }
 
+/// An owned client created from a [`Handle`].
+///
+/// Unlike a [`Handle`], it is safe to call [`mpv_destroy`](libmpv_client_sys::destroy) and [`mpv_terminate_destroy`](libmpv_client_sys::terminate_destroy)
+/// on an owned [`Client`]; thus the [`Client::destroy()`] and [`Client::terminate_destroy()`] methods are provided here.
+///
+/// Additionally, since [`mpv_initialize`](libmpv_client_sys::initialize) should only be called on uninitialized instances
+/// of mpv, it only makes sense to call it on a created [`Client`], so that is exposed here as [`Client::initialize()`].
+///
+/// All other usage is the same as [`Handle`].
+///
+/// # Example
+/// ```rust
+///# use std::thread::sleep;
+///# use std::time::Duration;
+///# use libmpv_client::{Event, Handle};
+///#
+///# use libmpv_client_sys::mpv_handle;
+///#
+/// #[unsafe(no_mangle)]
+/// extern "C" fn mpv_open_cplugin(ptr: *mut mpv_handle) -> std::os::raw::c_int {
+///     let handle = Handle::from_ptr(ptr);
+///
+///     let second_client = handle.create_client("second client").unwrap();
+///
+///     println!("Sleeping 5 seconds pre-wait_event...");
+///     // mpv will hang awaiting a sign of life from us during this sleep!
+///     sleep(Duration::from_secs(5));
+///
+///     // We must call wait_event on our original handle to let mpv know we're alive.
+///     let _ = handle.wait_event(-1.0);
+///
+///     println!("Sleeping 5 seconds post-wait_event...");
+///     // mpv will be operating normally during this sleep.
+///     sleep(Duration::from_secs(5));
+///
+///     loop {
+///         match second_client.wait_event(0.0) {
+///             Err(e) => {
+///                 println!("Second client got error: {e:?}");
+///             }
+///             Ok(event) => {
+///                 match event {
+///                     Event::Shutdown => {
+///                         println!("Goodbye from Rust!");
+///
+///                         // Clients must be destroyed in a timely manner!
+///                         // (though in this case it would get Drop'd anyway...)
+///                         second_client.destroy();
+///
+///                         // Handles require no additional cleanup!
+///                         return 0;
+///                     },
+///                     Event::None => {},
+///                     event => {
+///                         println!("Second client got event: {event:?}");
+///                     },
+///                 }
+///             }
+///         }
+///     }
+/// }
+/// ```
+pub struct Client(Handle);
+
+impl Client {
+    /// Initialize an uninitialized mpv instance. If the mpv instance is already running, an [`Error`] is returned.
+    ///
+    /// This function needs to be called to make full use of the client API if the client API handle was created with [`Handle::create()`].
+    ///
+    /// Only the following options are required to be set _before_ [`Client::initialize()`]:
+    /// - options which are only read at initialization time:
+    ///   - `config`
+    ///   - [`config-dir`](https://mpv.io/manual/stable/#options-config-dir)
+    ///   - [`input-conf`](https://mpv.io/manual/stable/#options-input-conf)
+    ///   - [`load-scripts`](https://mpv.io/manual/stable/#options-load-scripts)
+    ///   - [`script`](https://mpv.io/manual/stable/#options-scripts)
+    ///   - [`player-operation-mode`](https://mpv.io/manual/stable/#options-player-operation-mode)
+    ///   - `input-app-events` (macOS)
+    /// - [all encoding mode options](https://mpv.io/manual/stable/#encoding)
+    pub fn initialize(&self) -> Result<()> {
+        let err = unsafe { mpv::initialize(self.handle) };
+        error_to_result(err)
+    }
+
+    /// Disconnect and destroy the [`Client`] and its underlying [`Handle`]. The underlying [`mpv_handle`] will be deallocated with this API call.
+    ///
+    /// If the last [`mpv_handle`] is detached, the core player is destroyed.
+    /// In addition, if there are only weak handles (such as created by [`Handle::create_weak_client()`] or internal scripts), these handles will be sent [`Event::Shutdown`].
+    /// This function may block until these clients have responded to the shutdown event, and the core is finally destroyed.
+    ///
+    /// # Concurrency
+    /// Since the underlying [`mpv_handle`] is destroyed somewhere on the way, it's not safe to call other functions concurrently on the same handle.
+    ///
+    /// # Handles
+    /// Note that `mpv_destroy()` cannot be called from a cplugin client. The correct way to terminate (given a [`Handle`]) is to return from
+    /// the execution environment in which you were provided a [`mpv_handle`]. In the case of a cplugin, this means returning from `mpv_open_cplugin()`.
+    /// mpv will handle cleaning up the underlying client upon return.
+    ///
+    /// If a [`Handle`] wishes to terminate mpv, send `client.command(&["quit"])` before returning from `mpv_open_cplugin()`.
+    pub fn destroy(self) {
+        unsafe { mpv::destroy(self.handle) };
+        std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
+    }
+
+    /// Similar to [`Client::destroy()`], but brings the player and all clients down as well and waits until all of them are destroyed. This function blocks.
+    ///
+    /// The advantage over [`Client::destroy()`] is that while [`Client::destroy()`] merely detaches the client handle from the player,
+    /// this function quits the player, waits until all other clients are destroyed (i.e., all [`mpv_handle`]s are detached), and also waits for the final termination of the player.
+    ///
+    /// # Concurrency
+    /// Since the underlying [`mpv_handle`] is destroyed somewhere on the way, it's not safe to call other functions concurrently on the same handle.
+    ///
+    /// # Handles
+    /// Note that `mpv_destroy()` cannot be called from a cplugin client. The correct way to terminate (given a [`Handle`]) is to return from
+    /// the execution environment in which you were provided a [`mpv_handle`]. In the case of a cplugin, this means returning from `mpv_open_cplugin()`.
+    /// mpv will handle cleaning up the underlying client upon return.
+    ///
+    /// If a [`Handle`] wishes to terminate mpv, send `client.command(&["quit"])` before returning from `mpv_open_cplugin()`.
+    pub fn terminate_destroy(self) {
+        unsafe { mpv::terminate_destroy(self.handle) }
+        std::mem::forget(self); // forget to prevent Drop from calling destroy a second time
+    }
+}
+
 impl Drop for Handle {
     fn drop(&mut self) {
-        // This should not currently be called. See the Warning on `Handle::destroy()`.
-        // unsafe { mpv::destroy(self.handle) };
+        unsafe { mpv::destroy(self.handle) };
+    }
+}
+
+impl Deref for Client {
+    type Target = Handle;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

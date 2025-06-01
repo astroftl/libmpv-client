@@ -125,10 +125,9 @@ pub enum Event {
     None,
     /// Happens when the player quits. The player enters a state where it tries to disconnect all clients.
     ///
-    /// Most requests to the player will fail, and the client should react to this and quit with [`Handle::destroy()`] as soon as possible.
-    ///
-    /// # Warning
-    /// The above note about calling [`Handle::destroy()`] is incorrect at the moment. See [the warning on `Handle::destroy()`](Handle#warning).
+    /// Most requests to the player will fail, and the client should react to this accordingly;
+    /// a [`Handle`] should return execution from whatever context it was passed its [`mpv_handle`],
+    /// while a [`Client`] should call [`Client::destroy`] and quit as soon as possible.
     Shutdown,
     /// Happens when mpv receives a log message that matches the level filter set up with [`Handle::request_log_messages()`].
     LogMessage(LogMessage),
