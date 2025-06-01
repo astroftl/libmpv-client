@@ -5,7 +5,7 @@ use crate::*;
 use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
-/// Used with mpv_node only. Can usually not be used directly.
+/// A [`Vec<Node>`], used only within a [`Node`], and only in specific situations.
 pub type NodeArray = Vec<Node>;
 
 #[derive(Debug)]

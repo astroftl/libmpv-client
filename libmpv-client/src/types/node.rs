@@ -18,16 +18,24 @@ use crate::node_array::MpvNodeArray;
 use crate::node_map::MpvNodeMap;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
-/// Generic data storage.
+/// Generic data storage for various mpv argument types and responses.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
+    /// The [`Node`] is empty. See [`Format::NONE`].
     None,
+    /// The [`Node`] contains a string. See [`Format::STRING`].
     String(String),
+    /// The [`Node`] contains a boolean flag. See [`Format::NONE`].
     Flag(bool),
+    /// The [`Node`] contains an integer. See [`Format::INT64`].
     Int64(i64),
+    /// The [`Node`] contains a double. See [`Format::DOUBLE`].
     Double(f64),
+    /// The [`Node`] contains an array of [`Node`]s. See [`Format::NODE_ARRAY`].
     Array(NodeArray),
+    /// The [`Node`] contains a map of [`String`] keys and [`Node`] values. See [`Format::NODE_MAP`].
     Map(NodeMap),
+    /// The [`Node`] contains a raw, untyped byte array. See [`Format::BYTE_ARRAY`].
     ByteArray(ByteArray),
 }
 

@@ -1,11 +1,16 @@
+//! The various errors that can be raised by this crate's functions.
+//!
+//! The primary return type of this crate is [`Result<T>`], which may return an [`Error`].
+
 use std::ffi::{CStr, NulError, c_int};
 use std::fmt;
 use std::str::Utf8Error;
 use libmpv_client_sys::error_string;
 
-/// Rustified `Result` for mpv functions.
+/// [`std::result::Result`] wrapper around [`Error`] for mpv functions.
 ///
-/// Many mpv API functions returning error codes can also return positive values, which also indicate success. These values are exposed via the `Ok(i32)`.
+/// Many mpv API functions returning error codes can also return positive values, which also indicate success.
+/// Where relevant, these are exposed as [`Result<i32>`].
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Interpret an error code from an mpv API function into a `Result`, discarding the success code.
@@ -26,27 +31,37 @@ pub(crate) fn error_to_result(value: c_int) -> Result<()> {
     }
 }
 
+/// A structure representing a mismatch between an expected and actual version number.
 #[derive(Debug, Clone)]
 pub struct VersionError {
+    /// The version number that was expected.
     pub expected: u64,
+    /// The actual version number that was found.
     pub found: u64,
 }
 
+/// A debug struct for marking specific locations in code.
 #[derive(Debug)]
 pub struct DebugLoc {
+    /// The referenced file.
     pub file: &'static str,
+    /// The referenced line.
     pub line: u32,
+    /// Name of the referenced function.
     pub function: &'static str,
+    /// Name of the referenced variable.
     pub variable: Option<&'static str>,
 }
 
+/// Enum containing the possible errors in the Rust wrapper over mpv, which may be caused by data passed from mpv or by the user.
 #[derive(Debug)]
 pub enum RustError {
     /// Invalid UTF-8 data was encountered while parsing a C string into a Rust string.
     InvalidUtf8(Utf8Error),
     /// An unexpected NULL byte was found while parsing a Rust string into a C string.
     InteriorNull(NulError),
-    VersionMisMatch(VersionError),
+    /// The version of the mpv header or client does not match the version this crate was built for.
+    VersionMismatch(VersionError),
     /// mpv provided us with a null or otherwise malformed pointer.
     ///
     /// This can happen occasionally, especially during init, and is not fatal.

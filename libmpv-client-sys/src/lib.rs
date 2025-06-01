@@ -1,8 +1,16 @@
 #![cfg(not(doctest))]
+#![allow(rustdoc::broken_intra_doc_links)]
+#![allow(rustdoc::invalid_html_tags)]
+#![warn(missing_docs)]
+
+//! [bindgen](https://docs.rs/bindgen/latest/bindgen/) bindings for libmpv's [`client.h`](https://github.com/mpv-player/mpv/blob/master/include/mpv/client.h).
+//!
+//! Provides wrappings around the libmpv functions to utilize mpv's `MPV_CPLUGIN_DYNAMIC_SYM` option for [cplugins](https://mpv.io/manual/stable/#c-plugins),
+//! which is optional on Linux and required on Windows
 
 mod mpv_funcs;
 mod mpv_data;
-pub mod mpv_pfns;
+mod mpv_pfns;
 
 pub use mpv_data::*;
 
@@ -12,6 +20,9 @@ use mpv_pfns::*;
 #[cfg(not(feature = "dyn-sym"))]
 use mpv_funcs::*;
 
+/// The version of the mpv `client.h` (encoded as `(((major) << 16) | (minor) | 0UL)`) that this crate was built against.
+///
+/// Currently, `major` is 2 and `minor` is 5.
 pub const EXPECTED_MPV_VERSION: u32 = 131077;
 
 use std::fmt::{Debug, Formatter};
@@ -265,6 +276,7 @@ mod mpv_stubs {
     use crate::mpv_pfns::{pfn_mpv_free, pfn_mpv_free_node_contents};
 
     #[allow(unused_variables)]
+    /// Provide stub functions for [`free()`](crate::free) and [`free_node_contents()`](crate::free_node_contents) for use in a test environment disconnected from mpv.
     pub fn setup_mpv_stubs(free: extern "C" fn(data: *mut c_void), free_node_contents: extern "C" fn(node: *mut mpv_node)) {
         #[cfg(feature = "dyn-sym")]
         unsafe {

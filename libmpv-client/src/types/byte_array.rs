@@ -3,6 +3,7 @@ use libmpv_client_sys::mpv_byte_array;
 use crate::*;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
+/// A [`Vec<u8>`] representing a raw, untyped byte array. Only used with [`Node`], and only in some very specific situations. (Some commands use it.)
 pub type ByteArray = Vec<u8>;
 
 #[derive(Debug)]

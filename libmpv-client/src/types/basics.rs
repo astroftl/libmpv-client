@@ -4,6 +4,14 @@ use libmpv_client_sys::free;
 use crate::*;
 use crate::traits::MpvSend;
 
+/// A wrapper around [`String`] for mpv OSD property strings. See [`Format::OSD_STRING`].
+///
+/// It represents an OSD property string, like using `${property}` in `input.conf`.
+/// See [the mpv docs on raw and formatted properties](https://mpv.io/manual/stable/#raw-and-formatted-properties).
+///
+/// In many cases, this is the same as the raw string, but in other cases it's formatted for display on OSD.
+///
+/// It's intended to be human-readable. Do not attempt to parse these strings.
 #[derive(Debug)]
 pub struct OsdString(pub String);
 

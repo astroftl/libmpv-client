@@ -4,26 +4,27 @@ use crate::*;
 use crate::traits::MpvSend;
 
 #[derive(Debug)]
+/// An enum of the possible values returned in a [`GetPropertyReply`](event::GetPropertyReply) or a [`PropertyChange`](event::PropertyChange).
 pub enum PropertyValue {
-    /// Invalid. Sometimes used for empty values.
+    /// Sometimes used for empty values or errors. See [`Format::NONE`].
     None,
-    /// The raw property string, like using ${=property} in input.conf (see input.rst).
+    /// A raw property string. See [`Format::STRING`].
     String(String),
-    /// The OSD property string, like using ${property} in input.conf (see input.rst).
-    /// 
-    /// In many cases, this is the same as the raw string, but in other cases it's formatted for display on OSD.
-    /// 
-    /// It's intended to be human readable. Do not attempt to parse these strings.
+    /// An OSD property string. See [`Format::OSD_STRING`].
     OsdString(OsdString),
+    /// A flag property. See [`Format::FLAG`].
     Flag(bool),
+    /// An int64 property. See [`Format::INT64`].
     Int64(i64),
+    /// A double property. See [`Format::DOUBLE`].
     Double(f64),
+    /// A [`Node`] property. See [`Format::NODE`].
     Node(Node),
-    /// Used with `Node` only. Can usually not be used directly.
+    /// A [`NodeArray`] property. See [`Format::NODE_ARRAY`].
     NodeArray(NodeArray),
-    /// Used with `Node` only. Can usually not be used directly.
+    /// A [`NodeMap`] property. See [`Format::NODE_MAP`].
     NodeMap(NodeMap),
-    /// Only used only with `Node`, and only in some very specific situations. (Some commands use it.)
+    /// A [`ByteArray`] property. See [`Format::BYTE_ARRAY`].
     ByteArray(ByteArray),
 }
 

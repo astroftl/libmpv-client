@@ -6,7 +6,7 @@ use crate::*;
 use crate::node::MpvNode;
 use crate::traits::{MpvRepr, MpvSend, ToMpvRepr};
 
-/// Used with mpv_node only. Can usually not be used directly.
+/// A [`HashMap<String, Node>`], used only within a [`Node`], and only in specific situations.
 pub type NodeMap = HashMap<String, Node>;
 
 #[derive(Debug)]
