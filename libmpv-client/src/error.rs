@@ -2,10 +2,8 @@
 //!
 //! The primary return type of this crate is [`Result<T>`], which may return an [`Error`].
 
-use std::ffi::{CStr, NulError, c_int};
-use std::fmt;
+use std::ffi::{NulError, c_int};
 use std::str::Utf8Error;
-use libmpv_client_sys::error_string;
 
 /// [`std::result::Result`] wrapper around [`Error`] for mpv functions.
 ///
@@ -131,18 +129,6 @@ impl From<NulError> for Error {
     }
 }
 
-impl Error {
-    fn to_cstr(&self) -> &CStr {
-        unsafe {
-            CStr::from_ptr(error_string(self.into()))
-        }
-    }
-    
-    fn to_str(&self) -> &str {
-        self.to_cstr().to_str().unwrap_or("unknown error")
-    }
-}
-
 impl From<c_int> for Error {
     fn from(value: c_int) -> Self {
         match value {
@@ -198,11 +184,5 @@ impl From<&Error> for c_int {
             Error::Rust(_) => libmpv_client_sys::mpv_error_MPV_ERROR_GENERIC,
             Error::Success(x) => *x as c_int,
         }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[{}] {}", self, self.to_str())
     }
 }
