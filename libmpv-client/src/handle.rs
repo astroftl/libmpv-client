@@ -1,3 +1,5 @@
+//! Definition and implementation of [`Handle`], this crate's primary interface to mpv.
+
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
 use std::ptr::null;
@@ -7,7 +9,7 @@ use libmpv_client_sys::mpv_node;
 use crate::*;
 use crate::error::{error_to_result, error_to_result_code};
 use crate::event::LogLevel;
-use crate::traits::{MpvRecv, MpvSend};
+use crate::types::traits::{MpvRecv, MpvSend, MpvSendInternal};
 
 /// The primary interface to mpv.
 ///
@@ -361,7 +363,7 @@ impl Handle {
     /// Properties are essentially variables that can be queried or set at runtime. For example, writing to the pause property will actually pause or unpause playback.
     ///
     /// # Params
-    /// If the `T::MPV_FORMAT` of `value` doesn't match with the internal [`mpv_format`](libmpv_client_sys::mpv_format) format of the property,
+    /// If the [`MpvFormat::MPV_FORMAT`] of `value` doesn't match with the internal [`mpv_format`](libmpv_client_sys::mpv_format) format of the property,
     /// access usually will fail with [`Error::PropertyFormat`].
     ///
     /// In some cases, the data is automatically converted and access succeeds. For example, mpv converts [`i64`] to [`f64`],
@@ -402,7 +404,8 @@ impl Handle {
 
     /// Read the value of the given property.
     ///
-    /// If the format doesn't match with the internal format of the property, access usually will fail with [`Error::PropertyFormat`].
+    /// If the [`MpvFormat::MPV_FORMAT`] of the requested type doesn't match with the internal [`mpv_format`](libmpv_client_sys::mpv_format) format of the property,
+    /// access usually will fail with [`Error::PropertyFormat`].
     ///
     /// In some cases, the data is automatically converted and access succeeds. For example, [`i64`] is always converted to [`f64`],
     /// and access using [`String`] usually invokes a string formatter.
@@ -443,9 +446,9 @@ impl Handle {
     /// You always get an initial change notification. This is meant to initialize the user's state to the current value of the property.
     ///
     /// Normally, change events are sent only if the property value changes within the requested format.
-    /// [`PropertyChange.value`](field@event::PropertyChange::value) will contain the [`PropertyValue`].
+    /// [`PropertyChange.value`](field@event::PropertyChange::value) will contain the [`PropertyValue`](event::PropertyValue).
     ///
-    /// If the property is observed with the format parameter set to [`PropertyValue::None`], you get low-level notifications whether the property _may_ have changed.
+    /// If the property is observed with the format parameter set to [`PropertyValue::None`](event::PropertyValue::None), you get low-level notifications whether the property _may_ have changed.
     /// With this mode, you will have to determine yourself whether the property really changed. On the other hand, this mechanism can be faster and use fewer resources.
     ///
     /// Observing a property that doesn't exist is allowed. (Although it may still cause some sporadic change events.)

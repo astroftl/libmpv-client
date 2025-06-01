@@ -1,13 +1,6 @@
 #![allow(non_upper_case_globals)]
 
-//! # Safety Notes
-//!
-//! This module contains several casts from `*const T` to `*mut T` when interfacing
-//! with the MPV C API.
-//!
-//! **Invariant**: All `*const` to `*mut` casts in this module rely on mpv's documented
-//! promise to treat the data as read-only.
-
+use std::collections::HashMap;
 use std::ffi::{c_void, CStr, CString, c_char};
 use std::fmt::Debug;
 use libmpv_client_sys as mpv;
@@ -16,7 +9,7 @@ use crate::*;
 use crate::byte_array::MpvByteArray;
 use crate::node_array::MpvNodeArray;
 use crate::node_map::MpvNodeMap;
-use crate::traits::{MpvFormat, MpvRecv, MpvRepr, MpvSend, ToMpvRepr};
+use crate::types::traits::{MpvFormat, MpvRecv, MpvRecvInternal, MpvRepr, MpvSend, MpvSendInternal, ToMpvRepr};
 
 /// Generic data storage for various mpv argument types and responses.
 #[derive(Debug, Clone, PartialEq)]
@@ -63,7 +56,8 @@ impl MpvFormat for Node {
     const MPV_FORMAT: Format = Format::NODE;
 }
 
-impl MpvRecv for Node {
+impl MpvRecv for Node {}
+impl MpvRecvInternal for Node {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         unsafe { Self::from_node_ptr(ptr as *const mpv_node) }
     }
@@ -79,7 +73,8 @@ impl MpvRecv for Node {
     }
 }
 
-impl MpvSend for Node {
+impl MpvSend for Node {}
+impl MpvSendInternal for Node {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let repr = self.to_mpv_repr();
 
@@ -168,5 +163,26 @@ impl Node {
             mpv_format_MPV_FORMAT_BYTE_ARRAY => Ok(Node::ByteArray(unsafe { ByteArray::from_ptr(node.u.ba as *const c_void)? })),
             _ => unimplemented!()
         }
+    }
+}
+
+impl From<&[(&str, Node)]> for Node {
+    /// Convenience function to create a [`Node::Map`] from a [`&[(&str, Node)]`] slice.
+    ///
+    /// This creates the underlying [`HashMap`] and clones the references [`Node`]s.
+    fn from(slice: &[(&str, Node)]) -> Self {
+        let map: HashMap<String, Node> = slice.iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect();
+        Node::Map(map)
+    }
+}
+
+impl From<&[Node]> for Node {
+    /// Convenience function to create a [`Node::Map`] from a [`&[Node]`] slice.
+    ///
+    /// This creates the underlying [`Vec`].
+    fn from(slice: &[Node]) -> Self {
+        Node::Array(slice.to_vec())
     }
 }

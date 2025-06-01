@@ -6,27 +6,20 @@
 mod macros;
 
 use libmpv_client_sys as mpv;
+
+/// An opaque handle provided by mpv. Only useful when wrapped by [`Handle`].
 pub use mpv::mpv_handle;
 
-mod traits;
-
-mod handle;
-#[doc(inline)]
+pub mod handle;
 pub use handle::Handle;
 
-mod property;
-#[doc(inline)]
-pub use property::PropertyValue;
-
 pub mod event;
-#[doc(inline)]
 pub use event::{Event, EventId};
 
-mod types;
+pub mod types;
 pub use types::*;
 
 pub mod error;
-#[doc(inline)]
 pub use error::{Error, Result};
 
 pub mod version;

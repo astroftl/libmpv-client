@@ -1,9 +1,10 @@
 //! The various [`Event`]s and their payloads which may be sent by mpv.
 
-use std::ffi::CStr;
-use libmpv_client_sys::{mpv_event, mpv_event_client_message, mpv_event_command, mpv_event_end_file, mpv_event_hook, mpv_event_id, mpv_event_id_MPV_EVENT_AUDIO_RECONFIG, mpv_event_id_MPV_EVENT_CLIENT_MESSAGE, mpv_event_id_MPV_EVENT_COMMAND_REPLY, mpv_event_id_MPV_EVENT_END_FILE, mpv_event_id_MPV_EVENT_FILE_LOADED, mpv_event_id_MPV_EVENT_GET_PROPERTY_REPLY, mpv_event_id_MPV_EVENT_HOOK, mpv_event_id_MPV_EVENT_IDLE, mpv_event_id_MPV_EVENT_LOG_MESSAGE, mpv_event_id_MPV_EVENT_PLAYBACK_RESTART, mpv_event_id_MPV_EVENT_PROPERTY_CHANGE, mpv_event_id_MPV_EVENT_QUEUE_OVERFLOW, mpv_event_id_MPV_EVENT_SEEK, mpv_event_id_MPV_EVENT_SET_PROPERTY_REPLY, mpv_event_id_MPV_EVENT_SHUTDOWN, mpv_event_id_MPV_EVENT_START_FILE, mpv_event_id_MPV_EVENT_TICK, mpv_event_id_MPV_EVENT_VIDEO_RECONFIG, mpv_event_log_message, mpv_event_property, mpv_event_start_file};
+use std::ffi::{c_void, CStr};
+use libmpv_client_sys::{mpv_event, mpv_event_client_message, mpv_event_command, mpv_event_end_file, mpv_event_hook, mpv_event_id, mpv_event_id_MPV_EVENT_AUDIO_RECONFIG, mpv_event_id_MPV_EVENT_CLIENT_MESSAGE, mpv_event_id_MPV_EVENT_COMMAND_REPLY, mpv_event_id_MPV_EVENT_END_FILE, mpv_event_id_MPV_EVENT_FILE_LOADED, mpv_event_id_MPV_EVENT_GET_PROPERTY_REPLY, mpv_event_id_MPV_EVENT_HOOK, mpv_event_id_MPV_EVENT_IDLE, mpv_event_id_MPV_EVENT_LOG_MESSAGE, mpv_event_id_MPV_EVENT_PLAYBACK_RESTART, mpv_event_id_MPV_EVENT_PROPERTY_CHANGE, mpv_event_id_MPV_EVENT_QUEUE_OVERFLOW, mpv_event_id_MPV_EVENT_SEEK, mpv_event_id_MPV_EVENT_SET_PROPERTY_REPLY, mpv_event_id_MPV_EVENT_SHUTDOWN, mpv_event_id_MPV_EVENT_START_FILE, mpv_event_id_MPV_EVENT_TICK, mpv_event_id_MPV_EVENT_VIDEO_RECONFIG, mpv_event_log_message, mpv_event_property, mpv_event_start_file, mpv_format};
 use crate::*;
 use crate::error::error_to_result_code;
+use crate::types::traits::MpvRecvInternal;
 
 /// [`Event`] IDs for use with [`Handle::request_event()`].
 pub struct EventId(pub(crate) mpv_event_id);
@@ -482,5 +483,48 @@ impl Hook {
         let userdata = event.reply_userdata;
 
         Ok(Self { name, id, userdata })
+    }
+}
+
+#[derive(Debug)]
+/// An enum of the possible values returned in a [`GetPropertyReply`] or a [`PropertyChange`].
+pub enum PropertyValue {
+    /// Sometimes used for empty values or errors. See [`Format::NONE`].
+    None,
+    /// A raw property string. See [`Format::STRING`].
+    String(String),
+    /// An OSD property string. See [`Format::OSD_STRING`].
+    OsdString(OsdString),
+    /// A flag property. See [`Format::FLAG`].
+    Flag(bool),
+    /// An int64 property. See [`Format::INT64`].
+    Int64(i64),
+    /// A double property. See [`Format::DOUBLE`].
+    Double(f64),
+    /// A [`Node`] property. See [`Format::NODE`].
+    Node(Node),
+    /// A [`NodeArray`] property. See [`Format::NODE_ARRAY`].
+    NodeArray(NodeArray),
+    /// A [`NodeMap`] property. See [`Format::NODE_MAP`].
+    NodeMap(NodeMap),
+    /// A [`ByteArray`] property. See [`Format::BYTE_ARRAY`].
+    ByteArray(ByteArray),
+}
+
+impl PropertyValue {
+    pub(crate) unsafe fn from_mpv(format: mpv_format, data: *mut c_void) -> Result<Self> {
+        match format {
+            libmpv_client_sys::mpv_format_MPV_FORMAT_NONE => Ok(Self::None),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_STRING => Ok(Self::String(unsafe { String::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_OSD_STRING => Ok(Self::OsdString(unsafe { OsdString::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_FLAG => Ok(Self::Flag(unsafe { bool::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_INT64 => Ok(Self::Int64(unsafe { i64::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_DOUBLE => Ok(Self::Double(unsafe { f64::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_NODE => Ok(Self::Node(unsafe { Node::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_NODE_ARRAY => Ok(Self::NodeArray(unsafe { NodeArray::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_NODE_MAP => Ok(Self::NodeMap(unsafe { NodeMap::from_ptr(data)? })),
+            libmpv_client_sys::mpv_format_MPV_FORMAT_BYTE_ARRAY => Ok(Self::ByteArray(unsafe { ByteArray::from_ptr(data)? })),
+            _ => unimplemented!()
+        }
     }
 }

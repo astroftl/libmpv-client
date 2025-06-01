@@ -2,7 +2,7 @@ use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::ptr::null_mut;
 use libmpv_client_sys::free;
 use crate::*;
-use crate::traits::{MpvFormat, MpvRecv, MpvSend};
+use crate::types::traits::{MpvFormat, MpvRecv, MpvRecvInternal, MpvSend, MpvSendInternal};
 
 /// A wrapper around [`String`] for mpv OSD property strings. See [`Format::OSD_STRING`].
 ///
@@ -19,7 +19,26 @@ impl MpvFormat for String {
     const MPV_FORMAT: Format = Format::STRING;
 }
 
-impl MpvRecv for String {
+impl From<String> for Node {
+    fn from(value: String) -> Self {
+        Node::String(value)
+    }
+}
+
+impl From<&String> for Node {
+    fn from(value: &String) -> Self {
+        Node::String(value.clone())
+    }
+}
+
+impl From<&str> for Node {
+    fn from(value: &str) -> Self {
+        Node::String(value.to_string())
+    }
+}
+
+impl MpvRecv for String {}
+impl MpvRecvInternal for String {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         check_null!(ptr);
         let cstr = unsafe { *(ptr as *const *const c_char) };
@@ -39,9 +58,24 @@ impl MpvRecv for String {
     }
 }
 
-impl MpvSend for String {
+impl MpvSend for String {}
+impl MpvSendInternal for String {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let cstring = CString::new(self.as_bytes())?;
+        let cstr = cstring.as_ptr();
+
+        fun(&raw const cstr as *mut c_void)
+    }
+}
+
+impl MpvFormat for &str {
+    const MPV_FORMAT: Format = Format::STRING;
+}
+
+impl MpvSend for &str {}
+impl MpvSendInternal for &str {
+    fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
+        let cstring = CString::new(*self)?;
         let cstr = cstring.as_ptr();
 
         fun(&raw const cstr as *mut c_void)
@@ -52,7 +86,8 @@ impl MpvFormat for OsdString {
     const MPV_FORMAT: Format = Format::OSD_STRING;
 }
 
-impl MpvRecv for OsdString {
+impl MpvRecv for OsdString {}
+impl MpvRecvInternal for OsdString {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         Ok(OsdString(unsafe { String::from_ptr(ptr)? }))
     }
@@ -62,7 +97,8 @@ impl MpvRecv for OsdString {
     }
 }
 
-impl MpvSend for OsdString {
+impl MpvSend for OsdString {}
+impl MpvSendInternal for OsdString {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         self.0.to_mpv(fun)
     }
@@ -72,7 +108,14 @@ impl MpvFormat for bool {
     const MPV_FORMAT: Format = Format::FLAG;
 }
 
-impl MpvRecv for bool {
+impl From<bool> for Node {
+    fn from(value: bool) -> Self {
+        Node::Flag(value)
+    }
+}
+
+impl MpvRecv for bool {}
+impl MpvRecvInternal for bool {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         check_null!(ptr);
         Ok(unsafe { *(ptr as *const c_int) != 0 })
@@ -84,7 +127,8 @@ impl MpvRecv for bool {
     }
 }
 
-impl MpvSend for bool {
+impl MpvSend for bool {}
+impl MpvSendInternal for bool {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let flag = if *self { 1 } else { 0 };
         fun(&raw const flag as *mut c_void)
@@ -95,7 +139,14 @@ impl MpvFormat for i64 {
     const MPV_FORMAT: Format = Format::INT64;
 }
 
-impl MpvRecv for i64 {
+impl From<i64> for Node {
+    fn from(value: i64) -> Self {
+        Node::Int64(value)
+    }
+}
+
+impl MpvRecv for i64 {}
+impl MpvRecvInternal for i64 {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         check_null!(ptr);
         Ok(unsafe { *(ptr as *const Self) })
@@ -107,7 +158,8 @@ impl MpvRecv for i64 {
     }
 }
 
-impl MpvSend for i64 {
+impl MpvSend for i64 {}
+impl MpvSendInternal for i64 {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         fun(self as *const Self as *mut c_void)
     }
@@ -117,7 +169,14 @@ impl MpvFormat for f64 {
     const MPV_FORMAT: Format = Format::DOUBLE;
 }
 
-impl MpvRecv for f64 {
+impl From<f64> for Node {
+    fn from(value: f64) -> Self {
+        Node::Double(value)
+    }
+}
+
+impl MpvRecv for f64 {}
+impl MpvRecvInternal for f64 {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         check_null!(ptr);
         Ok(unsafe { *(ptr as *const Self) })
@@ -129,7 +188,8 @@ impl MpvRecv for f64 {
     }
 }
 
-impl MpvSend for f64 {
+impl MpvSend for f64 {}
+impl MpvSendInternal for f64 {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         fun(self as *const Self as *mut c_void)
     }

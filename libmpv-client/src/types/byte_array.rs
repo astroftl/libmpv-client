@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use libmpv_client_sys::mpv_byte_array;
 use crate::*;
-use crate::traits::{MpvFormat, MpvRecv, MpvRepr, MpvSend, ToMpvRepr};
+use crate::types::traits::{MpvFormat, MpvRecv, MpvRecvInternal, MpvRepr, MpvSend, MpvSendInternal, ToMpvRepr};
 
 /// A [`Vec<u8>`] representing a raw, untyped byte array. Only used with [`Node`], and only in some very specific situations. (Some commands use it.)
 pub type ByteArray = Vec<u8>;
@@ -25,7 +25,20 @@ impl MpvFormat for ByteArray {
     const MPV_FORMAT: Format = Format::BYTE_ARRAY;
 }
 
-impl MpvRecv for ByteArray {
+impl From<ByteArray> for Node {
+    fn from(value: ByteArray) -> Self {
+        Node::ByteArray(value)
+    }
+}
+
+impl From<&ByteArray> for Node {
+    fn from(value: &ByteArray) -> Self {
+        Node::ByteArray(value.clone())
+    }
+}
+
+impl MpvRecv for ByteArray {}
+impl MpvRecvInternal for ByteArray {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         check_null!(ptr);
         let byte_array = unsafe { *(ptr as *const mpv_byte_array) };
@@ -43,7 +56,8 @@ impl MpvRecv for ByteArray {
     }
 }
 
-impl MpvSend for ByteArray {
+impl MpvSend for ByteArray {}
+impl MpvSendInternal for ByteArray {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let repr = self.to_mpv_repr();
 

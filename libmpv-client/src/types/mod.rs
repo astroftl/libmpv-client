@@ -1,15 +1,22 @@
+//! Definitions and trait implementations for the various types that can be used to communicate with mpv.
 pub(crate) mod basics;
 pub(crate) mod node;
 pub(crate) mod node_array;
 pub(crate) mod node_map;
 pub(crate) mod byte_array;
+pub(crate) mod traits;
 mod tests;
 
-pub use basics::OsdString;
 pub use node::Node;
 pub use node_array::NodeArray;
 pub use node_map::NodeMap;
 pub use byte_array::ByteArray;
+pub use basics::OsdString;
+
+pub use traits::MpvFormat;
+pub use traits::MpvSend;
+pub use traits::MpvRecv;
+
 use libmpv_client_sys::mpv_format;
 
 /// A type representing the possible data types used in communication with mpv.

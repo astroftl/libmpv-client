@@ -6,8 +6,8 @@ use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list, setup_mpv_stubs};
 use crate::{ByteArray, Node, NodeArray, NodeMap};
-use crate::traits::{MpvRecv, MpvSend, ToMpvRepr};
 use crate::tests::stubs;
+use crate::types::traits::{MpvRecvInternal, MpvSendInternal, ToMpvRepr};
 
 #[test]
 fn string_from_mpv() {

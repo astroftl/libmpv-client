@@ -4,7 +4,7 @@ use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
 use crate::*;
 use crate::node::MpvNode;
-use crate::traits::{MpvFormat, MpvRecv, MpvRepr, MpvSend, ToMpvRepr};
+use crate::types::traits::{MpvFormat, MpvRecv, MpvRecvInternal, MpvRepr, MpvSend, MpvSendInternal, ToMpvRepr};
 
 /// A [`HashMap<String, Node>`], used only within a [`Node`], and only in specific situations.
 pub type NodeMap = HashMap<String, Node>;
@@ -34,7 +34,20 @@ impl MpvFormat for NodeMap {
     const MPV_FORMAT: Format = Format::NODE_MAP;
 }
 
-impl MpvRecv for NodeMap {
+impl From<NodeMap> for Node {
+    fn from(value: NodeMap) -> Self {
+        Node::Map(value)
+    }
+}
+
+impl From<&NodeMap> for Node {
+    fn from(value: &NodeMap) -> Self {
+        Node::Map(value.clone())
+    }
+}
+
+impl MpvRecv for NodeMap {}
+impl MpvRecvInternal for NodeMap {
     unsafe fn from_ptr(ptr: *const c_void) -> Result<Self> {
         check_null!(ptr);
 
@@ -70,7 +83,8 @@ impl MpvRecv for NodeMap {
     }
 }
 
-impl MpvSend for NodeMap {
+impl MpvSend for NodeMap {}
+impl MpvSendInternal for NodeMap {
     fn to_mpv<F: Fn(*mut c_void) -> Result<i32>>(&self, fun: F) -> Result<i32> {
         let repr = self.to_mpv_repr();
 
