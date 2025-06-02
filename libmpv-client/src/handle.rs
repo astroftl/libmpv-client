@@ -678,16 +678,9 @@ impl Handle {
 ///
 ///     let second_client = handle.create_client("second client").unwrap();
 ///
-///     println!("Sleeping 5 seconds pre-wait_event...");
-///     // mpv will hang awaiting a sign of life from us during this sleep!
-///     sleep(Duration::from_secs(5));
-///
-///     // We must call wait_event on our original handle to let mpv know we're alive.
+///     // Note: in the case of a cplugin, the passed Handle MUST call wait_event
+///     // or else mpv will block the entire program waiting for a sign of life.
 ///     let _ = handle.wait_event(-1.0);
-///
-///     println!("Sleeping 5 seconds post-wait_event...");
-///     // mpv will be operating normally during this sleep.
-///     sleep(Duration::from_secs(5));
 ///
 ///     loop {
 ///         match second_client.wait_event(0.0) {
