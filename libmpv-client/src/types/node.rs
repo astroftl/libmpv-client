@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::ffi::{c_void, CStr, CString, c_char};
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_BYTE_ARRAY, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
 use crate::*;
@@ -34,7 +35,7 @@ pub enum Node {
 
 #[derive(Debug)]
 pub(crate) struct MpvNode<'a> {
-    _original: &'a Node,
+    _original: PhantomData<&'a Node>,
 
     _owned_cstring: Option<CString>,
     _array_repr: Option<MpvNodeArray<'a>>,
@@ -87,7 +88,7 @@ impl ToMpvRepr for Node {
 
     fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
         let mut repr = MpvNode {
-            _original: self,
+            _original: PhantomData,
             _owned_cstring: None,
             _array_repr: None,
             _map_repr: None,

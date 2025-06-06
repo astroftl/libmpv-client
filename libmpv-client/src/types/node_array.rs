@@ -1,4 +1,5 @@
 use std::ffi::{c_int, c_void};
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
@@ -11,7 +12,7 @@ pub type NodeArray = Vec<Node>;
 
 #[derive(Debug)]
 pub(crate) struct MpvNodeArray<'a> {
-    _original: &'a NodeArray,
+    _original: PhantomData<&'a NodeArray>,
 
     _owned_reprs: Vec<MpvNode<'a>>,
     _flat_reprs: Vec<mpv_node>,
@@ -83,7 +84,7 @@ impl ToMpvRepr for NodeArray {
 
     fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
         let mut repr = MpvNodeArray {
-            _original: self,
+            _original: PhantomData,
             _owned_reprs: Vec::with_capacity(self.len()),
             _flat_reprs: Vec::with_capacity(self.len()),
             node_list: Box::new(mpv_node_list {

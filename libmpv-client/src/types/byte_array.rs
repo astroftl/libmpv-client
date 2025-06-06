@@ -1,4 +1,5 @@
 use std::ffi::c_void;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use libmpv_client_sys::mpv_byte_array;
 use crate::*;
@@ -9,7 +10,7 @@ pub type ByteArray = Vec<u8>;
 
 #[derive(Debug)]
 pub(crate) struct MpvByteArray<'a> {
-    _original: &'a ByteArray,
+    _original: PhantomData<&'a ByteArray>,
 
     byte_array: Box<mpv_byte_array>
 }
@@ -71,7 +72,7 @@ impl ToMpvRepr for ByteArray {
 
     fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
         MpvByteArray {
-            _original: self,
+            _original: PhantomData,
             byte_array: Box::new(mpv_byte_array {
                 data: self.as_ptr() as *mut c_void,
                 size: self.len(),

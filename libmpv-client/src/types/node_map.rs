@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::{CStr, CString,c_char, c_int, c_void};
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
@@ -12,7 +13,7 @@ pub type NodeMap = HashMap<String, Node>;
 
 #[derive(Debug)]
 pub(crate) struct MpvNodeMap<'a> {
-    _original: &'a NodeMap,
+    _original: PhantomData<&'a NodeMap>,
 
     _owned_reprs: Vec<MpvNode<'a>>,
     _flat_reprs: Vec<mpv_node>,
@@ -98,7 +99,7 @@ impl ToMpvRepr for NodeMap {
 
     fn to_mpv_repr(&self) -> Self::ReprWrap<'_> {
         let mut repr = MpvNodeMap {
-            _original: self,
+            _original: PhantomData,
             _owned_reprs: Vec::with_capacity(self.len()),
             _flat_reprs: Vec::with_capacity(self.len()),
             _owned_keys: Vec::with_capacity(self.len()),
