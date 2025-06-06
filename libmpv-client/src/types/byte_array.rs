@@ -1,4 +1,5 @@
 use std::ffi::c_void;
+use std::mem::MaybeUninit;
 use libmpv_client_sys::mpv_byte_array;
 use crate::*;
 use crate::types::traits::{MpvFormat, MpvRecv, MpvRecvInternal, MpvRepr, MpvSend, MpvSendInternal, ToMpvRepr};
@@ -48,10 +49,10 @@ impl MpvRecvInternal for ByteArray {
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
-        let mut ba: mpv_byte_array = unsafe { std::mem::zeroed() };
+        let mut ba: MaybeUninit<mpv_byte_array> = MaybeUninit::uninit();
 
-        fun(&raw mut ba as *mut c_void).map(|_| {
-            unsafe { Self::from_ptr(&raw const ba as *const c_void) }
+        fun(ba.as_mut_ptr() as *mut c_void).map(|_| {
+            unsafe { Self::from_ptr(ba.as_ptr() as *const c_void) }
         })?
     }
 }

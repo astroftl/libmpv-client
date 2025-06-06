@@ -4,15 +4,13 @@
 use std::collections::HashMap;
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::ptr::null_mut;
-use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list, setup_mpv_stubs};
+use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
 use crate::{ByteArray, Node, NodeArray, NodeMap};
-use crate::tests::stubs;
 use crate::types::traits::{MpvRecvInternal, MpvSendInternal, ToMpvRepr};
+use crate::tests;
 
 #[test]
 fn string_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cstring = CString::new("hello, world!").unwrap();
 
     let string = unsafe { String::from_mpv(|x| {
@@ -21,12 +19,13 @@ fn string_from_mpv() {
     }) };
 
     assert_eq!(string.unwrap(), cstring.to_str().unwrap());
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 1);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn string_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let string = String::from("hello, world!");
 
     string.to_mpv(|x| {
@@ -36,12 +35,13 @@ fn string_to_mpv() {
         assert_eq!(str, string);
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn flag_true_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cflag: c_int = 1;
 
     let flag = unsafe { bool::from_mpv(|x| {
@@ -50,12 +50,13 @@ fn flag_true_from_mpv() {
     }) };
 
     assert!(flag.unwrap());
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn flag_false_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cflag: c_int = 0;
 
     let flag = unsafe { bool::from_mpv(|x| {
@@ -64,36 +65,39 @@ fn flag_false_from_mpv() {
     }) };
 
     assert!(!flag.unwrap());
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn flag_true_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let flag = true;
     flag.to_mpv(|x| {
         let cflag = unsafe { *(x as *const c_int) };
         assert_eq!(cflag, 1);
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn flag_false_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let flag = false;
     flag.to_mpv(|x| {
         let cflag = unsafe { *(x as *const c_int) };
         assert_eq!(cflag, 0);
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn int64_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cval: i64 = 123456;
 
     let val = unsafe { i64::from_mpv(|x| {
@@ -102,12 +106,13 @@ fn int64_from_mpv() {
     }) };
 
     assert_eq!(val.unwrap(), cval);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn int64_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let val: i64 = 654321;
 
     val.to_mpv(|x| {
@@ -115,12 +120,13 @@ fn int64_to_mpv() {
         assert_eq!(val, cval);
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn double_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cval: f64 = 456.789;
 
     let val = unsafe { f64::from_mpv(|x| {
@@ -129,12 +135,13 @@ fn double_from_mpv() {
     }) };
 
     assert_eq!(val.unwrap(), cval);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn double_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let val: f64 = 987.654;
 
     val.to_mpv(|x| {
@@ -142,12 +149,13 @@ fn double_to_mpv() {
         assert_eq!(val, cval);
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn node_none_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cnode = mpv_node {
         u: mpv_node__bindgen_ty_1 { flag: 0 },
         format: mpv_format_MPV_FORMAT_NONE,
@@ -161,12 +169,13 @@ fn node_none_from_mpv() {
     }.unwrap();
 
     assert_eq!(node, Node::None);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 1);
 }
 
 #[test]
 fn node_none_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let node = Node::None;
 
     node.to_mpv(|x| {
@@ -179,8 +188,6 @@ fn node_none_to_mpv() {
 
 #[test]
 fn node_string_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cstring = CString::new("hello, world!").unwrap();
     let cnode = mpv_node {
         u: mpv_node__bindgen_ty_1 { string: cstring.as_ptr() as *mut c_char },
@@ -195,12 +202,13 @@ fn node_string_from_mpv() {
     }.unwrap();
 
     assert_eq!(node, Node::String(String::from("hello, world!")));
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 1);
 }
 
 #[test]
 fn node_string_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let node = Node::String(String::from("hello, world!"));
 
     node.to_mpv(|x| {
@@ -213,12 +221,13 @@ fn node_string_to_mpv() {
 
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn node_flag_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cnode = mpv_node {
         u: mpv_node__bindgen_ty_1 { flag: 1 },
         format: mpv_format_MPV_FORMAT_FLAG,
@@ -232,12 +241,13 @@ fn node_flag_from_mpv() {
     }.unwrap();
 
     assert_eq!(node, Node::Flag(true));
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 1);
 }
 
 #[test]
 fn node_flag_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let node = Node::Flag(true);
 
     node.to_mpv(|x| {
@@ -250,12 +260,13 @@ fn node_flag_to_mpv() {
 
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn node_complex_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let c_five_string = CString::new("five").unwrap();
     let c_counting_array_map_buffer = [
         mpv_node {
@@ -402,12 +413,13 @@ fn node_complex_from_mpv() {
     ]);
 
     assert_eq!(node, test_node);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 1);
 }
 
 #[test]
 fn node_complex_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let test_map = Node::Map(HashMap::from([
         ("none".to_string(), Node::None),
         ("string".to_string(), Node::String("hello, world!".to_string())),
@@ -554,12 +566,13 @@ fn node_complex_to_mpv() {
 
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn nodemap_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cstring = CString::new("hello, world!").unwrap();
     let cnodes = [
         mpv_node {
@@ -605,12 +618,13 @@ fn nodemap_from_mpv() {
     ]);
 
     assert_eq!(nodemap, map);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn nodemap_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let map = HashMap::from([
         ("first".to_string(), Node::String("hello, world!".to_string())),
         ("second".to_string(), Node::Flag(true)),
@@ -666,12 +680,13 @@ fn nodemap_to_mpv() {
 
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn nodearray_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cstring = CString::new("hello, world!").unwrap();
     let cnodes = [
         mpv_node {
@@ -709,12 +724,13 @@ fn nodearray_from_mpv() {
         Node::Int64(123456),
         Node::Double(456.789)
     ]);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn nodearray_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let nodearray = vec![
         Node::String(String::from("hello, world!")),
         Node::Flag(true),
@@ -746,12 +762,13 @@ fn nodearray_to_mpv() {
 
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn ba_from_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let cbuffer: [u8; 8] = [0x10, 0x20, 0x30, 0x40, 0xA0, 0xB0, 0xC0, 0xD0];
     let cba = mpv_byte_array {
         data: cbuffer.as_ptr() as *mut c_void,
@@ -764,12 +781,13 @@ fn ba_from_mpv() {
     }) };
 
     assert_eq!(buffer.unwrap(), cbuffer);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
 fn ba_to_mpv() {
-    setup_mpv_stubs(stubs::mpv_free, stubs::mpv_free_node_contents);
-
     let buffer: ByteArray = vec![0xF0, 0xE0, 0xD0, 0xC0, 0x80, 0x70, 0x60, 0x50];
 
     buffer.to_mpv(|x| {
@@ -780,6 +798,9 @@ fn ba_to_mpv() {
         assert_eq!(buffer, cbuffer);
         Ok(0)
     }).unwrap();
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }
 
 #[test]
@@ -859,4 +880,7 @@ fn node_huge_round_trip() {
     let test_node = unsafe { Node::from_node_ptr(&raw const *mpv_repr.node) }.unwrap();
 
     assert_eq!(test_node, node);
+
+    assert_eq!(tests::MPV_FREE_CALLS.get(), 0);
+    assert_eq!(tests::MPV_FREE_NODE_CONTENTS_CALLS.get(), 0);
 }

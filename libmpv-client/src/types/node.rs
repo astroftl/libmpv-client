@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::ffi::{c_void, CStr, CString, c_char};
 use std::fmt::Debug;
-use libmpv_client_sys as mpv;
+use std::mem::MaybeUninit;
 use libmpv_client_sys::{mpv_byte_array, mpv_format_MPV_FORMAT_BYTE_ARRAY, mpv_format_MPV_FORMAT_DOUBLE, mpv_format_MPV_FORMAT_FLAG, mpv_format_MPV_FORMAT_INT64, mpv_format_MPV_FORMAT_NODE_ARRAY, mpv_format_MPV_FORMAT_NODE_MAP, mpv_format_MPV_FORMAT_NONE, mpv_format_MPV_FORMAT_STRING, mpv_node, mpv_node__bindgen_ty_1, mpv_node_list};
 use crate::*;
 use crate::byte_array::MpvByteArray;
@@ -63,11 +63,11 @@ impl MpvRecvInternal for Node {
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
-        let mut node: mpv_node = unsafe { std::mem::zeroed() };
+        let mut node: MaybeUninit<mpv_node> = MaybeUninit::uninit();
 
-        fun(&raw mut node as *mut c_void).map(|_| {
-            let ret = unsafe { Self::from_node_ptr(&node) };
-            unsafe { mpv::free_node_contents(&mut node) }
+        fun(node.as_mut_ptr() as *mut c_void).map(|_| {
+            let ret = unsafe { Self::from_node_ptr(node.as_ptr()) };
+            unsafe { mpv_free_node_contents(node.as_mut_ptr()) }
             ret
         })?
     }

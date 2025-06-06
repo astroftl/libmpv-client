@@ -272,7 +272,7 @@ impl Handle {
             error_to_result_code(err)
         }).and_then(|_| {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
-            unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
+            unsafe { mpv_free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
         })
     }
@@ -294,13 +294,13 @@ impl Handle {
 
         let mut cstrs: Vec<_> = owned_strings.iter().map(|s| s.as_ptr()).collect();
         cstrs.push(null());
-
+        
         let mut return_mpv_node = MaybeUninit::uninit();
 
         let err = unsafe { mpv::command_ret(self.handle, cstrs.as_mut_ptr(), return_mpv_node.as_mut_ptr()) };
         error_to_result_code(err).and_then(|_| {
             let ret = unsafe { Node::from_node_ptr(return_mpv_node.as_ptr()) };
-            unsafe { mpv::free_node_contents(return_mpv_node.as_mut_ptr()) }
+            unsafe { mpv_free_node_contents(return_mpv_node.as_mut_ptr()) }
             ret
         })
     }

@@ -1,6 +1,5 @@
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::ptr::null_mut;
-use libmpv_client_sys::free;
 use crate::*;
 use crate::types::traits::{MpvFormat, MpvRecv, MpvRecvInternal, MpvSend, MpvSendInternal};
 
@@ -52,7 +51,7 @@ impl MpvRecvInternal for String {
 
         fun(&raw mut cstr as *mut c_void).and_then(|_| {
             let ret = unsafe { Self::from_ptr(&raw mut cstr as *const c_void) };
-            unsafe { free(cstr as *mut c_void) }
+            unsafe { mpv_free(cstr as *mut c_void) }
             ret
         })
     }

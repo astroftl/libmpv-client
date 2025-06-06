@@ -1,4 +1,5 @@
 use std::ffi::{c_int, c_void};
+use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use libmpv_client_sys::{mpv_node, mpv_node_list};
 use crate::*;
@@ -60,10 +61,10 @@ impl MpvRecvInternal for NodeArray {
     }
 
     unsafe fn from_mpv<F: Fn(*mut c_void) -> Result<i32>>(fun: F) -> Result<Self> {
-        let mut node_list: mpv_node_list = unsafe { std::mem::zeroed() };
+        let mut node_list: MaybeUninit<mpv_node_list> = MaybeUninit::uninit();
 
-        fun(&raw mut node_list as *mut c_void).map(|_| {
-            unsafe { Self::from_ptr(&raw const node_list as *const c_void) }
+        fun(node_list.as_mut_ptr() as *mut c_void).map(|_| {
+            unsafe { Self::from_ptr(node_list.as_ptr() as *const c_void) }
         })?
     }
 }
